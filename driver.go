@@ -38,7 +38,7 @@ func initDriver() error {
 	ret = api.SQLSetEnvUIntPtrAttr(drv.h, api.SQL_ATTR_ODBC_VERSION,
 		api.SQL_OV_ODBC3, 0)
 	if IsError(ret) {
-		defer releaseHandle(drv.h)
+		defer func() { _ = releaseHandle(drv.h) }()
 		return NewError("SQLSetEnvAttr ODBC v3", drv.h)
 	}
 

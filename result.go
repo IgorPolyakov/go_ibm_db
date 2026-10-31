@@ -5,6 +5,7 @@
 package go_ibm_db
 
 import (
+	"context"
 	"database/sql/driver"
 	"errors"
 	"fmt"
@@ -27,13 +28,17 @@ func (r *Result) LastInsertId() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
-	rows, err := s.Query(nil)
+	stmt, ok := s.(*Stmt)
+	if !ok {
+		return 0, fmt.Errorf("unexpected statement type %T", s)
+	}
+	rows, err := stmt.query1(context.Background(), nil)
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	dest := make([]driver.Value, 1)
 	err = rows.Next(dest)

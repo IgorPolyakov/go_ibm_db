@@ -27,6 +27,10 @@ type ODBCStmt struct {
 	mu         sync.Mutex
 	usedByStmt bool
 	usedByRows bool
+	// cancellation guard: serializes SQLCancel (fired from a context
+	// watcher goroutine) with statement handle release
+	cancelMu sync.Mutex
+	freed    bool
 	// bulk fetch support
 	fetchSize   int
 	rowsFetched api.SQLULEN
@@ -56,12 +60,12 @@ func (c *Conn) PrepareODBCStmt(query string) (*ODBCStmt, error) {
 			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQL_NTS)
 	}
 	if IsError(ret) {
-		defer releaseHandle(h)
+		defer func() { _ = releaseHandle(h) }()
 		return nil, NewError("SQLPrepare", h)
 	}
 	ps, err := ExtractParameters(h, query)
 	if err != nil {
-		defer releaseHandle(h)
+		defer func() { _ = releaseHandle(h) }()
 		return nil, err
 	}
 
@@ -112,9 +116,26 @@ func (s *ODBCStmt) closeByRows() error {
 func (s *ODBCStmt) releaseHandle() error {
 	trc.Trace1("odbcstmt.go: releaseHandle()")
 
+	s.cancelMu.Lock()
+	s.freed = true
+	s.cancelMu.Unlock()
+
 	h := s.h
 	s.h = api.SQLHSTMT(api.SQL_NULL_HSTMT)
 	return releaseHandle(h)
+}
+
+// cancel aborts an in-flight operation on this statement. It is safe to
+// call from another goroutine while SQLExecute or SQLFetch is blocked:
+// ODBC explicitly permits SQLCancel from a different thread. If the
+// statement handle has already been released, cancel does nothing.
+func (s *ODBCStmt) cancel() {
+	s.cancelMu.Lock()
+	defer s.cancelMu.Unlock()
+	if s.freed || s.h == api.SQLHSTMT(api.SQL_NULL_HSTMT) {
+		return
+	}
+	api.SQLCancel(s.h)
 }
 
 var testingIssue5 bool // used during tests
@@ -207,7 +228,7 @@ func (s *ODBCStmt) Exec(args []driver.Value) error {
 		paramSetSize = ArrayLength
 	}
 	ret := api.SQLSetStmtAttr(s.h, api.SQL_ATTR_PARAMSET_SIZE,
-		api.SQLPOINTER(uintptr(paramSetSize)), api.SQL_IS_INTEGER)
+		api.SQLPOINTER(uintptr(paramSetSize)), api.SQL_IS_INTEGER) //nolint:govet // ODBC statement attributes pass the integer value via the pointer argument
 	if IsError(ret) {
 		return NewError("SQLSetStmtAttr", s.h)
 	}
@@ -250,7 +271,7 @@ func (s *ODBCStmt) BindColumns() error {
 	// Set up block cursor if fetchSize > 1
 	if s.fetchSize > 1 {
 		ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROW_ARRAY_SIZE,
-			api.SQLPOINTER(uintptr(s.fetchSize)), api.SQL_IS_UINTEGER)
+			api.SQLPOINTER(uintptr(s.fetchSize)), api.SQL_IS_UINTEGER) //nolint:govet // ODBC statement attributes pass the integer value via the pointer argument
 		if IsError(ret) {
 			return NewError("SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE", s.h)
 		}
@@ -292,7 +313,7 @@ func (s *ODBCStmt) BindColumns() error {
 				binding = false
 				s.fetchSize = 1
 				ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROW_ARRAY_SIZE,
-					api.SQLPOINTER(uintptr(1)), api.SQL_IS_UINTEGER)
+					api.SQLPOINTER(uintptr(1)), api.SQL_IS_UINTEGER) //nolint:govet // ODBC statement attributes pass the integer value via the pointer argument
 				if IsError(ret) {
 					return NewError("SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE reset", s.h)
 				}

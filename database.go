@@ -14,7 +14,7 @@ import (
 // and create the database.
 func CreateDb(dbname string, connStr string, options ...string) (bool, error) {
 	trc.Trace1("database.go: CreateDb() - ENTRY")
-	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s", dbname, connStr))
+	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s", dbname, maskDSN(connStr)))
 
 	if dbname == "" {
 		trc.Trace1("Error: Database name cannot be empty")
@@ -43,7 +43,7 @@ func CreateDb(dbname string, connStr string, options ...string) (bool, error) {
 
 func createDatabase(dbname string, connStr string, codeset string, mode string) (bool, error) {
 	trc.Trace1("database.go: createDatabase() - ENTRY")
-	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s, codeset=%s, mode=%s", dbname, connStr, codeset, mode))
+	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s, codeset=%s, mode=%s", dbname, maskDSN(connStr), codeset, mode))
 	var out api.SQLHANDLE
 	in := api.SQLHANDLE(api.SQL_NULL_HANDLE)
 	bufDBN := api.StringToUTF16(dbname)
@@ -58,7 +58,7 @@ func createDatabase(dbname string, connStr string, codeset string, mode string) 
 	drvH := api.SQLHENV(out)
 	ret = api.SQLAllocHandle(api.SQL_HANDLE_DBC, api.SQLHANDLE(drvH), &out)
 	if IsError(ret) {
-		defer releaseHandle(drvH)
+		defer func() { _ = releaseHandle(drvH) }()
 		return false, NewError("SQLAllocHandle", drvH)
 	}
 	hdbc := api.SQLHDBC(out)
@@ -66,7 +66,7 @@ func createDatabase(dbname string, connStr string, codeset string, mode string) 
 		(*api.SQLWCHAR)(unsafe.Pointer(&bufCS[0])), api.SQLSMALLINT(len(bufCS)),
 		nil, 0, nil, api.SQL_DRIVER_NOPROMPT)
 	if IsError(ret) {
-		defer releaseHandle(hdbc)
+		defer func() { _ = releaseHandle(hdbc) }()
 		return false, NewError("SQLDriverConnect", hdbc)
 	}
 	switch {
@@ -80,10 +80,10 @@ func createDatabase(dbname string, connStr string, codeset string, mode string) 
 		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), (*api.SQLWCHAR)(unsafe.Pointer(&bufC[0])), api.SQLINTEGER(len(bufC)), (*api.SQLWCHAR)(unsafe.Pointer(&bufM[0])), api.SQLINTEGER(len(bufM)))
 	}
 	if IsError(ret) {
-		defer releaseHandle(hdbc)
+		defer func() { _ = releaseHandle(hdbc) }()
 		return false, NewError("SQLCreateDb", hdbc)
 	}
-	defer releaseHandle(hdbc)
+	defer func() { _ = releaseHandle(hdbc) }()
 
 	trc.Trace1("database.go: createDatabase() - EXIT")
 	return true, nil
@@ -93,7 +93,7 @@ func createDatabase(dbname string, connStr string, codeset string, mode string) 
 // and drop the database.
 func DropDb(dbname string, connStr string) (bool, error) {
 	trc.Trace1("database.go: DropDb() - ENTRY")
-	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s", dbname, connStr))
+	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s", dbname, maskDSN(connStr)))
 
 	if dbname == "" {
 		return false, errors.New("database name cannot be empty")
@@ -105,7 +105,7 @@ func DropDb(dbname string, connStr string) (bool, error) {
 
 func dropDatabase(dbname string, connStr string) (bool, error) {
 	trc.Trace1("database.go: dropDatabase() - ENTRY")
-	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s", dbname, connStr))
+	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s", dbname, maskDSN(connStr)))
 
 	var out api.SQLHANDLE
 	in := api.SQLHANDLE(api.SQL_NULL_HANDLE)
@@ -119,7 +119,7 @@ func dropDatabase(dbname string, connStr string) (bool, error) {
 	drvH := api.SQLHENV(out)
 	ret = api.SQLAllocHandle(api.SQL_HANDLE_DBC, api.SQLHANDLE(drvH), &out)
 	if IsError(ret) {
-		defer releaseHandle(drvH)
+		defer func() { _ = releaseHandle(drvH) }()
 		return false, NewError("SQLAllocHandle", drvH)
 	}
 	hdbc := api.SQLHDBC(out)
@@ -127,14 +127,14 @@ func dropDatabase(dbname string, connStr string) (bool, error) {
 		(*api.SQLWCHAR)(unsafe.Pointer(&bufCS[0])), api.SQLSMALLINT(len(bufCS)),
 		nil, 0, nil, api.SQL_DRIVER_NOPROMPT)
 	if IsError(ret) {
-		defer releaseHandle(hdbc)
+		defer func() { _ = releaseHandle(hdbc) }()
 		return false, NewError("SQLDriverConnect", hdbc)
 	}
 	ret = api.SQLDropDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)))
 	if IsError(ret) {
-		defer releaseHandle(hdbc)
+		defer func() { _ = releaseHandle(hdbc) }()
 		return false, NewError("SQLDropDb", hdbc)
 	}
-	defer releaseHandle(hdbc)
+	defer func() { _ = releaseHandle(hdbc) }()
 	return true, nil
 }

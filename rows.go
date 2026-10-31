@@ -5,6 +5,7 @@
 package go_ibm_db
 
 import (
+	"context"
 	"database/sql/driver"
 	"fmt"
 	"io"
@@ -17,18 +18,23 @@ import (
 
 type Rows struct {
 	os           *ODBCStmt
+	ctx          context.Context
 	batchSize    int
 	rowsInBatch  int
 	currentIndex int
 }
 
-func newRows(os *ODBCStmt) *Rows {
+func newRows(ctx context.Context, os *ODBCStmt) *Rows {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	batchSize := os.fetchSize
 	if batchSize < 1 {
 		batchSize = 1
 	}
 	return &Rows{
 		os:        os,
+		ctx:       ctx,
 		batchSize: batchSize,
 	}
 }
@@ -146,6 +152,11 @@ func (r *Rows) ColumnTypeDatabaseTypeName(index int) string {
 func (r *Rows) Next(dest []driver.Value) error {
 	trc.Trace1("rows.go: Next() - ENTRY")
 
+	// If the query context is canceled while SQLFetch is blocked on the
+	// server, ask the server to abort so the call returns promptly.
+	stopWatch := watchContext(r.ctx, r.os)
+	defer stopWatch()
+
 	// Bulk fetch mode: serve rows from the fetched block
 	if r.batchSize > 1 {
 		for {
@@ -157,6 +168,9 @@ func (r *Rows) Next(dest []driver.Value) error {
 					return io.EOF
 				}
 				if IsError(ret) {
+					if cerr := r.ctx.Err(); cerr != nil {
+						return cerr
+					}
 					return NewError("SQLFetch", r.os.h)
 				}
 				r.rowsInBatch = int(r.os.rowsFetched)
@@ -166,10 +180,16 @@ func (r *Rows) Next(dest []driver.Value) error {
 			}
 			row := r.currentIndex
 			r.currentIndex++
-			// Skip rows with error/norow status
-			if r.os.rowStatus[row] != api.SQL_ROW_SUCCESS &&
-				r.os.rowStatus[row] != api.SQL_ROW_SUCCESS_WITH_INFO {
+			// NOROW is a gap in the row set and can be skipped, but an
+			// error status must surface to the caller instead of silently
+			// dropping the row and returning an incomplete result
+			switch r.os.rowStatus[row] {
+			case api.SQL_ROW_SUCCESS, api.SQL_ROW_SUCCESS_WITH_INFO:
+				// fall through to read the values below
+			case api.SQL_ROW_NOROW:
 				continue
+			default:
+				return NewError("SQLFetch", r.os.h)
 			}
 			for i := range dest {
 				v, err := r.os.Cols[i].ValueAtRow(r.os.h, i, row)
@@ -189,6 +209,9 @@ func (r *Rows) Next(dest []driver.Value) error {
 		return io.EOF
 	}
 	if IsError(ret) {
+		if cerr := r.ctx.Err(); cerr != nil {
+			return cerr
+		}
 		return NewError("SQLFetch", r.os.h)
 	}
 	for i := range dest {

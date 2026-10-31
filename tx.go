@@ -40,7 +40,6 @@ func (c *Conn) endTx(commit bool) error {
 	if c.tx == nil {
 		return errors.New("not in a transaction")
 	}
-	c.tx = nil
 	var howToEnd api.SQLSMALLINT
 	if commit {
 		howToEnd = api.SQL_COMMIT
@@ -49,8 +48,12 @@ func (c *Conn) endTx(commit bool) error {
 	}
 	ret := api.SQLEndTran(api.SQL_HANDLE_DBC, api.SQLHANDLE(c.h), howToEnd)
 	if IsError(ret) {
+		// keep c.tx set on failure: the transaction state on the server
+		// is indeterminate, and clearing it here would let subsequent
+		// statements run with autocommit still OFF without anyone knowing
 		return NewError("SQLEndTran", c.h)
 	}
+	c.tx = nil
 	err := c.setAutoCommitAttr(api.SQL_AUTOCOMMIT_ON)
 	if err != nil {
 		return err

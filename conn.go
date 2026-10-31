@@ -5,6 +5,8 @@
 package go_ibm_db
 
 import (
+	"bytes"
+	"context"
 	"database/sql/driver"
 	"runtime"
 	"strconv"
@@ -52,9 +54,22 @@ func parseDSN(dsn string) (string, int) {
 	return cleanDSN, fetchSize
 }
 
+// maskDSN redacts the password part of a connection string so that
+// tracing never logs credentials.
+func maskDSN(dsn string) string {
+	parts := strings.Split(dsn, ";")
+	for i, p := range parts {
+		kv := strings.SplitN(p, "=", 2)
+		if len(kv) == 2 && strings.EqualFold(kv[0], "PWD") {
+			parts[i] = kv[0] + "=***"
+		}
+	}
+	return strings.Join(parts, ";")
+}
+
 func (d *Driver) Open(dsn string) (driver.Conn, error) {
 	trc.Trace1("conn.go: Open() - ENTRY")
-	trc.Trace1("dsn = " + dsn)
+	trc.Trace1("dsn = " + maskDSN(dsn))
 
 	cleanDSN, fetchSize := parseDSN(dsn)
 
@@ -77,7 +92,7 @@ func (d *Driver) Open(dsn string) (driver.Conn, error) {
 			nil, 0, nil, api.SQL_DRIVER_NOPROMPT)
 	}
 	if IsError(ret) {
-		defer releaseHandle(h)
+		defer func() { _ = releaseHandle(h) }()
 		return nil, NewError("SQLDriverConnect", h)
 	}
 	trc.Trace1("conn.go: Open() - EXIT")
@@ -112,8 +127,37 @@ func (c *Conn) GetInfo(infoType uint16) (string, error) {
 		return "", NewError("SQLGetInfo", c.h)
 	}
 
+	name := api.UTF16ToString(buf)
+	if !isPrintableASCII(name) {
+		// Some servers (Informix over DRDA) return the info value as
+		// single-byte ASCII even through the wide (UTF-16) API. UTF16ToString
+		// then pairs adjacent ASCII bytes into garbage runes; reinterpret the
+		// raw bytes in that case.
+		raw := make([]byte, 0, 2*len(buf))
+		for _, u := range buf {
+			raw = append(raw, byte(u), byte(u>>8)) //nolint:gosec // deliberate split of uint16 into its two bytes
+		}
+		if i := bytes.IndexByte(raw, 0); i >= 0 {
+			raw = raw[:i]
+		}
+		if isPrintableASCII(string(raw)) {
+			name = string(raw)
+		}
+	}
+
 	trc.Trace1("conn.go: GetInfo() - EXIT")
-	return api.UTF16ToString(buf), nil
+	return name, nil
+}
+
+// isPrintableASCII reports whether s consists solely of printable ASCII
+// characters (an empty string qualifies).
+func isPrintableASCII(s string) bool {
+	for _, r := range s {
+		if r < 0x20 || r > 0x7e {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *Conn) Close() error {
@@ -157,12 +201,12 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQL_NTS)
 	}
 	if IsError(ret) {
-		defer releaseHandle(h)
+		defer func() { _ = releaseHandle(h) }()
 		return nil, NewError("SQLExecDirectW", h)
 	}
 	ps, err := ExtractParameters(h)
 	if err != nil {
-		defer releaseHandle(h)
+		defer func() { _ = releaseHandle(h) }()
 		return nil, err
 	}
 	os = &ODBCStmt{
@@ -173,8 +217,11 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	}
 	err = os.BindColumns()
 	if err != nil {
+		// release the statement handle on this error path too,
+		// otherwise the handle leaks
+		defer func() { _ = releaseHandle(h) }()
 		return nil, err
 	}
 	trc.Trace1("conn.go: Query() - EXIT")
-	return newRows(os), nil
+	return newRows(context.Background(), os), nil
 }

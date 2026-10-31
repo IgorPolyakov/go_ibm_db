@@ -1,6 +1,7 @@
 package go_ibm_db
 
 import (
+	"database/sql"
 	"sync"
 	"testing"
 	"time"
@@ -104,5 +105,50 @@ func TestPoolReleasePreventsNewConnections(t *testing.T) {
 	}
 	if p.Init(1, "dsn") {
 		t.Fatal("expected Init to fail after Release")
+	}
+}
+
+// TestPconnectInvalidParamsNoPanic verifies that malformed pool option
+// strings produce a usable pool instead of a panic.
+func TestPconnectInvalidParamsNoPanic(t *testing.T) {
+	for _, s := range []string{"PoolSize", "PoolSize=", "PoolSize=abc", "PoolSize=0", "Foo=1", ""} {
+		p := Pconnect(s)
+		if p == nil {
+			t.Fatalf("Pconnect(%q) returned nil", s)
+		}
+		if p.poolSize != defaultMaxIdleConns && s == "PoolSize=0" {
+			t.Fatalf("Pconnect(%q): poolSize = %d, want default %d", s, p.poolSize, defaultMaxIdleConns)
+		}
+	}
+}
+
+// TestPoolOpenAfterReleaseWhileWaiting verifies that Open returns nil
+// instead of panicking when Release runs while Open waits for a free slot.
+func TestPoolOpenAfterReleaseWhileWaiting(t *testing.T) {
+	p := Pconnect("PoolSize=1")
+	// occupy the only slot with a lazily-opened handle
+	filled, err := sql.Open("go_ibm_db", "dsn")
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	p.usedPool["dsn"] = []*DBP{{DB: filled, con: "dsn", pool: p}}
+
+	p.mu.Lock()
+	p.maxLifetime = 2 * time.Second
+	p.mu.Unlock()
+
+	done := make(chan *DBP, 1)
+	go func() { done <- p.Open("dsn") }()
+
+	time.Sleep(300 * time.Millisecond)
+	p.Release() // must not panic the waiting Open
+
+	select {
+	case dbp := <-done:
+		if dbp != nil {
+			t.Fatal("expected Open to return nil after Release")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Open did not return after Release")
 	}
 }

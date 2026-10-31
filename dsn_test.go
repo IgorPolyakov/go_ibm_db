@@ -87,3 +87,39 @@ func TestParseDSN(t *testing.T) {
 		})
 	}
 }
+
+func TestMaskDSN(t *testing.T) {
+	tests := []struct {
+		name string
+		dsn  string
+		want string
+	}{
+		{
+			name: "password is redacted",
+			dsn:  "DATABASE=x;HOSTNAME=h;PORT=1;PROTOCOL=TCPIP;UID=u;PWD=secret",
+			want: "DATABASE=x;HOSTNAME=h;PORT=1;PROTOCOL=TCPIP;UID=u;PWD=***",
+		},
+		{
+			name: "password key is case-insensitive",
+			dsn:  "DATABASE=x;pwd=secret",
+			want: "DATABASE=x;pwd=***",
+		},
+		{
+			name: "no password stays intact",
+			dsn:  "DATABASE=x;UID=u",
+			want: "DATABASE=x;UID=u",
+		},
+		{
+			name: "empty segment and valueless key",
+			dsn:  "DATABASE=x;;PWD=",
+			want: "DATABASE=x;;PWD=***",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := maskDSN(test.dsn); got != test.want {
+				t.Fatalf("maskDSN(%q) = %q, want %q", test.dsn, got, test.want)
+			}
+		})
+	}
+}

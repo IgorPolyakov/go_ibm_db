@@ -42,11 +42,13 @@ func Pconnect(poolSize string) *Pool {
 	var size int
 	count := len(poolSize)
 	if count > 0 {
-		opt := strings.Split(poolSize, "=")
-		if opt[0] == "PoolSize" {
-			size, _ = strconv.Atoi(opt[1])
-			if size <= 0 {
+		opt := strings.SplitN(poolSize, "=", 2)
+		if len(opt) == 2 && opt[0] == "PoolSize" {
+			n, err := strconv.Atoi(opt[1])
+			if err != nil || n <= 0 {
 				size = defaultMaxIdleConns
+			} else {
+				size = n
 			}
 		} else {
 			fmt.Println("Not a valid parameter")
@@ -101,20 +103,20 @@ func (p *Pool) takeAvailableLocked(connStr string, lifetime time.Duration) *DBP 
 // If not opens a new connection and stores in the pool
 func (p *Pool) Open(connStr string, options ...string) *DBP {
 	trc.Trace1("pooling.go: Open() - ENTRY")
-	trc.Trace1("connStr=" + connStr)
+	trc.Trace1("connStr=" + maskDSN(connStr))
 
 	var Time time.Duration
 	configuredLifetime := false
 	count := len(options)
 	if count > 0 {
 		for i := range count {
-			opt := strings.Split(options[i], "=")
-			if opt[0] == "SetConnMaxLifetime" {
-				lifetime, _ := strconv.Atoi(opt[1])
-				if lifetime <= 0 {
-					lifetime = defaultConnMaxLifetime
+			opt := strings.SplitN(options[i], "=", 2)
+			if len(opt) == 2 && opt[0] == "SetConnMaxLifetime" {
+				n, err := strconv.Atoi(opt[1])
+				if err != nil || n <= 0 {
+					n = defaultConnMaxLifetime
 				}
-				Time = time.Duration(lifetime) * time.Second
+				Time = time.Duration(n) * time.Second
 				configuredLifetime = true
 			} else {
 				fmt.Println("Not a valid parameter")
@@ -136,6 +138,12 @@ func (p *Pool) Open(connStr string, options ...string) *DBP {
 	deadline := time.Now().Add(timeout)
 	for {
 		p.mu.Lock()
+		// re-check on every iteration: Release() may have nil'ed the
+		// pool maps while we were waiting for a free slot
+		if p.closed {
+			p.mu.Unlock()
+			return nil
+		}
 		if dbpo := p.takeAvailableLocked(connStr, Time); dbpo != nil {
 			p.mu.Unlock()
 			return dbpo
@@ -171,7 +179,7 @@ func (p *Pool) Open(connStr string, options ...string) *DBP {
 
 func (p *Pool) Init(numConn int, connStr string) bool {
 	trc.Trace1("pooling.go: Init() - ENTRY")
-	trc.Trace1(fmt.Sprintf("numConn=%d, connStr=%s", numConn, connStr))
+	trc.Trace1(fmt.Sprintf("numConn=%d, connStr=%s", numConn, maskDSN(connStr)))
 
 	var Time time.Duration
 
@@ -198,7 +206,7 @@ func (p *Pool) Init(numConn int, connStr string) bool {
 		p.mu.Lock()
 		if p.closed {
 			p.mu.Unlock()
-			db.Close()
+			_ = db.Close()
 			trc.Trace1("pooling.go: Init() - return false")
 			return false
 		}
@@ -216,7 +224,7 @@ func (d *DBP) Close() {
 
 	p := d.pool
 	if p == nil {
-		d.DB.Close()
+		_ = d.DB.Close()
 		return
 	}
 	found := false
@@ -245,10 +253,10 @@ func (d *DBP) Close() {
 			}
 			go d.Timeout()
 		} else {
-			d.DB.Close()
+			_ = d.DB.Close()
 		}
 	} else {
-		d.DB.Close()
+		_ = d.DB.Close()
 	}
 	p.mu.Unlock()
 	trc.Trace1("pooling.go: Close() - EXIT")
@@ -284,7 +292,7 @@ func (d *DBP) Timeout() {
 			} else {
 				p.availablePool[d.con] = valt
 			}
-			dbpt.DB.Close()
+			_ = dbpt.DB.Close()
 		}
 	}
 	p.mu.Unlock()
@@ -304,7 +312,7 @@ func (p *Pool) Release() {
 	if p.availablePool != nil {
 		for _, vala := range p.availablePool {
 			for _, dbpr := range vala {
-				dbpr.DB.Close()
+				_ = dbpr.DB.Close()
 			}
 		}
 		p.availablePool = nil
@@ -312,7 +320,7 @@ func (p *Pool) Release() {
 	if p.usedPool != nil {
 		for _, valu := range p.usedPool {
 			for _, dbpr := range valu {
-				dbpr.DB.Close()
+				_ = dbpr.DB.Close()
 			}
 		}
 		p.usedPool = nil

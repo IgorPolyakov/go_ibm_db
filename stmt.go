@@ -42,6 +42,9 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 	select {
 	default:
 	case <-ctx.Done():
+		// the statement handle was already allocated: release it,
+		// otherwise it leaks on the cancelled path
+		_ = os.closeByStmt()
 		return nil, ctx.Err()
 	}
 	trc.Trace1("stmt.go: PrepareContext() - EXIT")
@@ -100,7 +103,7 @@ func (s *Stmt) exec(ctx context.Context, args []driver.Value) (driver.Result, er
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.os.usedByRows {
-		s.os.closeByStmt()
+		_ = s.os.closeByStmt()
 		s.os = nil
 		os, err := s.c.PrepareODBCStmt(s.query)
 		if err != nil {
@@ -108,8 +111,14 @@ func (s *Stmt) exec(ctx context.Context, args []driver.Value) (driver.Result, er
 		}
 		s.os = os
 	}
+	// Abort SQLExecute server-side when ctx is canceled while it blocks.
+	stopWatch := watchContext(ctx, s.os)
+	defer stopWatch()
 	err := s.os.Exec(args)
 	if err != nil {
+		if cerr := ctx.Err(); cerr != nil {
+			return nil, cerr
+		}
 		return nil, err
 	}
 	var sumRowCount int64
@@ -122,6 +131,11 @@ func (s *Stmt) exec(ctx context.Context, args []driver.Value) (driver.Result, er
 		sumRowCount += int64(c)
 		if ret = api.SQLMoreResults(s.os.h); ret == api.SQL_NO_DATA {
 			break
+		}
+		// SQLMoreResults failed: report the diagnostics instead of
+		// looping forever (the loop previously only broke on SQL_NO_DATA)
+		if IsError(ret) {
+			return nil, NewError("SQLMoreResults", s.os.h)
 		}
 	}
 
@@ -163,7 +177,7 @@ func (s *Stmt) query1(ctx context.Context, args []driver.Value) (driver.Rows, er
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.os.usedByRows {
-		s.os.closeByStmt()
+		_ = s.os.closeByStmt()
 		s.os = nil
 		os, err := s.c.PrepareODBCStmt(s.query)
 		if err != nil {
@@ -171,12 +185,21 @@ func (s *Stmt) query1(ctx context.Context, args []driver.Value) (driver.Rows, er
 		}
 		s.os = os
 	}
+	// Abort SQLExecute server-side when ctx is canceled while it blocks.
+	stopWatch := watchContext(ctx, s.os)
+	defer stopWatch()
 	err := s.os.Exec(args)
 	if err != nil {
+		if cerr := ctx.Err(); cerr != nil {
+			return nil, cerr
+		}
 		return nil, err
 	}
 	err = s.os.BindColumns()
 	if err != nil {
+		if cerr := ctx.Err(); cerr != nil {
+			return nil, cerr
+		}
 		return nil, err
 	}
 	s.os.usedByRows = true // now both Stmt and Rows refer to it
@@ -187,7 +210,7 @@ func (s *Stmt) query1(ctx context.Context, args []driver.Value) (driver.Rows, er
 		return nil, ctx.Err()
 	}
 
-	return newRows(s.os), nil
+	return newRows(ctx, s.os), nil
 }
 
 // CheckNamedValue implements driver.NamedValueChecker.

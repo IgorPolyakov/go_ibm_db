@@ -13,6 +13,9 @@ import (
 
 var globalvar string = ""
 
+// traceFileWarned prevents spamming stderr when the trace file stays broken.
+var traceFileWarned bool
+
 func GetPath(filename string) {
 	// fmt.Println("filename = ", filename)
 	//fmt.Println("Args Length = ", argsLen)
@@ -42,14 +45,19 @@ func Trace1(msg1 string) {
 	}
 
 	// file, errlog := os.OpenFile("C:\\temp\\testlogs2.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	file, errlog := os.OpenFile(globalvar, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o666)
+	file, errlog := os.OpenFile(globalvar, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if errlog != nil {
-		log.Fatal(errlog)
+		// a broken trace file must not kill the application
+		if !traceFileWarned {
+			traceFileWarned = true
+			fmt.Fprintln(os.Stderr, "go_ibm_db: cannot open trace file:", errlog)
+		}
+		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	log.SetOutput(file)
 	log.Println(msg1)
 
-	file.Sync()
+	_ = file.Sync()
 }
