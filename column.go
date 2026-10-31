@@ -55,7 +55,7 @@ func (l *BufferLen) GetData(h api.SQLHSTMT, idx int, ctype api.SQLSMALLINT, buf 
 	trc.Trace1("column.go: GetData()")
 
 	return api.SQLGetData(h, odbcNum(idx), ctype,
-		api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLLEN(len(buf)),
+		api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLLEN(len(buf)), //nolint:gosec // G115: caller-sized buffer
 		(*api.SQLLEN)(l))
 }
 

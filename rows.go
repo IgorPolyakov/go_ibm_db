@@ -60,7 +60,7 @@ func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok b
 	ok = false
 	var namelen api.SQLSMALLINT
 	namebuf := make([]byte, api.MAX_FIELD_SIZE)
-	ret := api.SQLColAttribute(r.os.h, api.SQLUSMALLINT(index+1), api.SQL_DESC_TYPE_NAME, api.SQLPOINTER(unsafe.Pointer(&namebuf[0])), api.MAX_FIELD_SIZE, (*api.SQLSMALLINT)(&namelen), api.SQLPOINTER(unsafe.Pointer(nil)))
+	ret := api.SQLColAttribute(r.os.h, odbcNum(index), api.SQL_DESC_TYPE_NAME, api.SQLPOINTER(unsafe.Pointer(&namebuf[0])), api.MAX_FIELD_SIZE, (*api.SQLSMALLINT)(&namelen), api.SQLPOINTER(unsafe.Pointer(nil)))
 
 	if IsError(ret) {
 		fmt.Println(ret)
@@ -68,13 +68,13 @@ func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok b
 		return 0, 0, false
 	}
 	dbtype := string(namebuf[:namelen])
-	ret = api.SQLColAttribute(r.os.h, api.SQLUSMALLINT(index+1), api.SQL_DESC_PRECISION, api.SQLPOINTER(unsafe.Pointer(nil)), 0, (*api.SQLSMALLINT)(nil), api.SQLPOINTER(unsafe.Pointer(&precision)))
+	ret = api.SQLColAttribute(r.os.h, odbcNum(index), api.SQL_DESC_PRECISION, api.SQLPOINTER(unsafe.Pointer(nil)), 0, (*api.SQLSMALLINT)(nil), api.SQLPOINTER(unsafe.Pointer(&precision)))
 	if IsError(ret) {
 		fmt.Println(ret)
 		trc.Trace1(fmt.Sprintf("Error: %d", ret))
 		return 0, 0, false
 	}
-	ret = api.SQLColAttribute(r.os.h, api.SQLUSMALLINT(index+1), api.SQL_DESC_SCALE, api.SQLPOINTER(unsafe.Pointer(nil)), 0, (*api.SQLSMALLINT)(nil), api.SQLPOINTER(unsafe.Pointer(&scale)))
+	ret = api.SQLColAttribute(r.os.h, odbcNum(index), api.SQL_DESC_SCALE, api.SQLPOINTER(unsafe.Pointer(nil)), 0, (*api.SQLSMALLINT)(nil), api.SQLPOINTER(unsafe.Pointer(&scale)))
 	if IsError(ret) {
 		fmt.Println(ret)
 		trc.Trace1(fmt.Sprintf("Error: %d", ret))
@@ -98,7 +98,7 @@ func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok b
 func (r *Rows) ColumnTypeLength(index int) (length int64, ok bool) {
 	trc.Trace1("rows.go: ColumnTypeLength() - ENTRY")
 
-	ret := api.SQLColAttribute(r.os.h, api.SQLUSMALLINT(index+1), api.SQL_DESC_LENGTH, api.SQLPOINTER(unsafe.Pointer(nil)), 0, (*api.SQLSMALLINT)(nil), api.SQLPOINTER(unsafe.Pointer(&length)))
+	ret := api.SQLColAttribute(r.os.h, odbcNum(index), api.SQL_DESC_LENGTH, api.SQLPOINTER(unsafe.Pointer(nil)), 0, (*api.SQLSMALLINT)(nil), api.SQLPOINTER(unsafe.Pointer(&length)))
 	if IsError(ret) {
 		fmt.Println(ret)
 		return 0, false
@@ -113,7 +113,7 @@ func (r *Rows) ColumnTypeNullable(index int) (nullable, ok bool) {
 	trc.Trace1("rows.go: ColumnTypeNullable() - ENTRY")
 
 	var null int64
-	ret := api.SQLColAttribute(r.os.h, api.SQLUSMALLINT(index+1), api.SQL_DESC_NULLABLE, api.SQLPOINTER(unsafe.Pointer(nil)), 0, (*api.SQLSMALLINT)(nil), api.SQLPOINTER(unsafe.Pointer(&null)))
+	ret := api.SQLColAttribute(r.os.h, odbcNum(index), api.SQL_DESC_NULLABLE, api.SQLPOINTER(unsafe.Pointer(nil)), 0, (*api.SQLSMALLINT)(nil), api.SQLPOINTER(unsafe.Pointer(&null)))
 	if IsError(ret) {
 		fmt.Println(ret)
 		return false, false
@@ -144,7 +144,7 @@ func (r *Rows) ColumnTypeDatabaseTypeName(index int) string {
 
 	var namelen api.SQLSMALLINT
 	namebuf := make([]byte, api.MAX_FIELD_SIZE)
-	ret := api.SQLColAttribute(r.os.h, api.SQLUSMALLINT(index+1), api.SQL_DESC_TYPE_NAME, api.SQLPOINTER(unsafe.Pointer(&namebuf[0])), api.MAX_FIELD_SIZE, (*api.SQLSMALLINT)(&namelen), api.SQLPOINTER(unsafe.Pointer(nil)))
+	ret := api.SQLColAttribute(r.os.h, odbcNum(index), api.SQL_DESC_TYPE_NAME, api.SQLPOINTER(unsafe.Pointer(&namebuf[0])), api.MAX_FIELD_SIZE, (*api.SQLSMALLINT)(&namelen), api.SQLPOINTER(unsafe.Pointer(nil)))
 
 	if IsError(ret) {
 		fmt.Println(ret)

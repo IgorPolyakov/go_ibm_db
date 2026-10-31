@@ -86,11 +86,11 @@ func (d *Driver) Open(dsn string) (driver.Conn, error) {
 	b := api.StringToUTF16(cleanDSN)
 	if runtime.GOOS == "zos" {
 		ret = api.SQLDriverConnect(h, 0,
-			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLSMALLINT(2*len(b)),
+			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLSMALLINT(2*len(b)), //nolint:gosec // G115: bounded string/buffer length
 			nil, 0, nil, api.SQL_DRIVER_NOPROMPT)
 	} else {
 		ret = api.SQLDriverConnect(h, 0,
-			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLSMALLINT(len(b)),
+			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLSMALLINT(len(b)), //nolint:gosec // G115: bounded string/buffer length
 			nil, 0, nil, api.SQL_DRIVER_NOPROMPT)
 	}
 	if IsError(ret) {
@@ -122,10 +122,10 @@ func (c *Conn) GetInfo(infoType uint16) (string, error) {
 	if runtime.GOOS == "zos" {
 		// odbc api on zos doesn't handle null terminated strings, the exact size is passed
 		ret = api.SQLGetInfo(c.h, api.SQLUSMALLINT(infoType),
-			api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLSMALLINT(2*len(buf)), &outLen)
+			api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLSMALLINT(2*len(buf)), &outLen) //nolint:gosec // G115: bounded string/buffer length
 	} else {
 		ret = api.SQLGetInfo(c.h, api.SQLUSMALLINT(infoType),
-			api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLSMALLINT(len(buf)), &outLen)
+			api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLSMALLINT(len(buf)), &outLen) //nolint:gosec // G115: bounded string/buffer length
 	}
 	if IsError(ret) {
 		return "", NewError("SQLGetInfo", c.h)
@@ -200,7 +200,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		// On z/OS, StringToUTF16 does not append null terminator,
 		// so we must pass the exact byte length instead of SQL_NTS
 		ret = api.SQLExecDirect(h,
-			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLINTEGER(2*len(b)))
+			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLINTEGER(2*len(b))) //nolint:gosec // G115: bounded string/buffer length
 	} else {
 		ret = api.SQLExecDirect(h,
 			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQL_NTS)

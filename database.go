@@ -63,7 +63,7 @@ func createDatabase(dbname string, connStr string, codeset string, mode string) 
 	}
 	hdbc := api.SQLHDBC(out)
 	ret = api.SQLDriverConnect(hdbc, 0,
-		(*api.SQLWCHAR)(unsafe.Pointer(&bufCS[0])), api.SQLSMALLINT(len(bufCS)),
+		(*api.SQLWCHAR)(unsafe.Pointer(&bufCS[0])), api.SQLSMALLINT(len(bufCS)), //nolint:gosec // G115: bounded name/string length
 		nil, 0, nil, api.SQL_DRIVER_NOPROMPT)
 	if IsError(ret) {
 		defer func() { _ = releaseHandle(hdbc) }()
@@ -71,13 +71,13 @@ func createDatabase(dbname string, connStr string, codeset string, mode string) 
 	}
 	switch {
 	case codeset == "" && mode == "":
-		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), nil, 0, nil, 0)
+		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), nil, 0, nil, 0) //nolint:gosec // G115: bounded name/string length
 	case codeset == "":
-		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), nil, 0, (*api.SQLWCHAR)(unsafe.Pointer(&bufM[0])), api.SQLINTEGER(len(bufM)))
+		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), nil, 0, (*api.SQLWCHAR)(unsafe.Pointer(&bufM[0])), api.SQLINTEGER(len(bufM))) //nolint:gosec // G115: bounded name/string length
 	case mode == "":
-		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), (*api.SQLWCHAR)(unsafe.Pointer(&bufC[0])), api.SQLINTEGER(len(bufC)), nil, 0)
+		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), (*api.SQLWCHAR)(unsafe.Pointer(&bufC[0])), api.SQLINTEGER(len(bufC)), nil, 0) //nolint:gosec // G115: bounded name/string length
 	default:
-		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), (*api.SQLWCHAR)(unsafe.Pointer(&bufC[0])), api.SQLINTEGER(len(bufC)), (*api.SQLWCHAR)(unsafe.Pointer(&bufM[0])), api.SQLINTEGER(len(bufM)))
+		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), (*api.SQLWCHAR)(unsafe.Pointer(&bufC[0])), api.SQLINTEGER(len(bufC)), (*api.SQLWCHAR)(unsafe.Pointer(&bufM[0])), api.SQLINTEGER(len(bufM))) //nolint:gosec // G115: bounded name/string length
 	}
 	if IsError(ret) {
 		defer func() { _ = releaseHandle(hdbc) }()
@@ -124,13 +124,13 @@ func dropDatabase(dbname string, connStr string) (bool, error) {
 	}
 	hdbc := api.SQLHDBC(out)
 	ret = api.SQLDriverConnect(hdbc, 0,
-		(*api.SQLWCHAR)(unsafe.Pointer(&bufCS[0])), api.SQLSMALLINT(len(bufCS)),
+		(*api.SQLWCHAR)(unsafe.Pointer(&bufCS[0])), api.SQLSMALLINT(len(bufCS)), //nolint:gosec // G115: bounded name/string length
 		nil, 0, nil, api.SQL_DRIVER_NOPROMPT)
 	if IsError(ret) {
 		defer func() { _ = releaseHandle(hdbc) }()
 		return false, NewError("SQLDriverConnect", hdbc)
 	}
-	ret = api.SQLDropDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)))
+	ret = api.SQLDropDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN))) //nolint:gosec // G115: bounded name/string length
 	if IsError(ret) {
 		defer func() { _ = releaseHandle(hdbc) }()
 		return false, NewError("SQLDropDb", hdbc)

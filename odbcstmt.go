@@ -59,7 +59,7 @@ func (c *Conn) PrepareODBCStmt(query string) (*ODBCStmt, error) {
 		// On z/OS, StringToUTF16 does not append null terminator,
 		// so we must pass the exact byte length instead of SQL_NTS
 		ret = api.SQLPrepare(h,
-			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLINTEGER(2*len(b)))
+			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLINTEGER(2*len(b))) //nolint:gosec // G115: b is the bounded query string
 	} else {
 		ret = api.SQLPrepare(h,
 			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQL_NTS)
