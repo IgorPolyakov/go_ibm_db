@@ -56,6 +56,15 @@ func SQLBindParameter(statementHandle SQLHSTMT, parameterNumber SQLUSMALLINT, in
 	return SQLRETURN(r)
 }
 
+func SQLCancel(statementHandle SQLHSTMT) SQLRETURN {
+	trc.Trace1("api/zapi_zos.go SQLCancel() - ENTRY")
+
+	r := utils.CfuncEbcdic(getFunc(&dll, "SQLCancel"), uintptr(statementHandle))
+
+	trc.Trace1("api/zapi_zos.go SQLCancel() - EXIT")
+	return SQLRETURN(r)
+}
+
 func SQLCloseCursor(statementHandle SQLHSTMT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLCloseCursor() - ENTRY")
 

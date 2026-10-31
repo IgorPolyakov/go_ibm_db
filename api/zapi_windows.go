@@ -18,6 +18,7 @@ var (
 	procSQLAllocHandle     = mododbc32.NewProc("SQLAllocHandle")
 	procSQLBindCol         = mododbc32.NewProc("SQLBindCol")
 	procSQLBindParameter   = mododbc32.NewProc("SQLBindParameter")
+	procSQLCancel          = mododbc32.NewProc("SQLCancel")
 	procSQLCloseCursor     = mododbc32.NewProc("SQLCloseCursor")
 	procSQLDescribeColW    = mododbc32.NewProc("SQLDescribeColW")
 	procSQLDescribeParam   = mododbc32.NewProc("SQLDescribeParam")
@@ -93,6 +94,17 @@ func SQLBindParameter(statementHandle SQLHSTMT, parameterNumber SQLUSMALLINT, in
 
 	trc.Trace1(fmt.Sprintf("ret = %d", ret))
 	trc.Trace1("api/zapi_windows.go SQLBindParameter()- EXIT")
+	return
+}
+
+func SQLCancel(statementHandle SQLHSTMT) (ret SQLRETURN) {
+	trc.Trace1("api/zapi_windows.go SQLCancel() - ENTRY")
+
+	r0, _, _ := syscall.Syscall(procSQLCancel.Addr(), 1, uintptr(statementHandle), 0, 0)
+	ret = SQLRETURN(r0)
+
+	trc.Trace1(fmt.Sprintf("ret = %d", ret))
+	trc.Trace1("api/zapi_windows.go SQLCancel() - EXIT")
 	return
 }
 

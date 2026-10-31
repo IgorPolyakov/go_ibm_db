@@ -57,6 +57,16 @@ func SQLBindParameter(statementHandle SQLHSTMT, parameterNumber SQLUSMALLINT, in
 	return SQLRETURN(r)
 }
 
+func SQLCancel(statementHandle SQLHSTMT) (ret SQLRETURN) {
+	trc.Trace1("api/zapi_unix.go SQLCancel() - ENTRY")
+
+	r := C.SQLCancel(C.SQLHSTMT(statementHandle))
+
+	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("api/zapi_unix.go SQLCancel() - EXIT")
+	return SQLRETURN(r)
+}
+
 func SQLCloseCursor(statementHandle SQLHSTMT) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLCloseCursor() - ENTRY")
 
@@ -103,7 +113,7 @@ func SQLDriverConnect(connectionHandle SQLHDBC, windowHandle SQLHWND, inConnecti
 	trc.Trace1("api/zapi_unix.go SQLDriverConnect() - ENTRY")
 	trc.Trace1(fmt.Sprintf("inConnectionString=%v, stringLength1=%d, outConnectionString=%v, bufferLength=%d, stringLength2Ptr=%x, driverCompletion=%d", inConnectionString, stringLength1, outConnectionString, bufferLength, stringLength2Ptr, driverCompletion))
 
-	r := C.SQLDriverConnectW(C.SQLHDBC(connectionHandle), C.SQLHWND(windowHandle), (*C.SQLWCHAR)(unsafe.Pointer(inConnectionString)), C.SQLSMALLINT(stringLength1), (*C.SQLWCHAR)(unsafe.Pointer(outConnectionString)), C.SQLSMALLINT(bufferLength), (*C.SQLSMALLINT)(stringLength2Ptr), C.SQLUSMALLINT(driverCompletion))
+	r := C.SQLDriverConnectW(C.SQLHDBC(connectionHandle), C.SQLHWND(windowHandle), (*C.SQLWCHAR)(unsafe.Pointer(inConnectionString)), C.SQLSMALLINT(stringLength1), (*C.SQLWCHAR)(unsafe.Pointer(outConnectionString)), C.SQLSMALLINT(bufferLength), (*C.SQLSMALLINT)(unsafe.Pointer(stringLength2Ptr)), C.SQLUSMALLINT(driverCompletion)) //nolint:govet // generated cgo bridge: reinterprets the API-compatible pointer types
 
 	trc.Trace1(fmt.Sprintf("r = %d", r))
 	trc.Trace1("api/zapi_unix.go SQLDriverConnect() - EXIT")
