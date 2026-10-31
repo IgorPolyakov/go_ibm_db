@@ -142,8 +142,6 @@ func (s *ODBCStmt) cancel() {
 	api.SQLCancel(s.h)
 }
 
-var testingIssue5 bool // used during tests
-
 func (s *ODBCStmt) Exec(args []driver.Value) error {
 	trc.Trace1("odbcstmt.go: Exec() - ENTRY")
 
@@ -162,9 +160,6 @@ func (s *ODBCStmt) Exec(args []driver.Value) error {
 		if err != nil {
 			return err
 		}
-	}
-	if testingIssue5 {
-		time.Sleep(10 * time.Microsecond)
 	}
 
 	for _, a := range args {

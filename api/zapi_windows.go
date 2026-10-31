@@ -328,32 +328,6 @@ func SQLRowCount(statementHandle SQLHSTMT, rowCountPtr *SQLLEN) (ret SQLRETURN) 
 	return
 }
 
-// SQLSetEnvAttr sets an environment attribute.
-func SQLSetEnvAttr(environmentHandle SQLHENV, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) (ret SQLRETURN) {
-	trc.Trace1("api/zapi_windows.go SQLSetEnvAttr() - ENTRY")
-	trc.Trace1(fmt.Sprintf("attribute=%d, valuePtr=0x%x, stringLength=%d", attribute, valuePtr, stringLength))
-
-	r0, _, _ := syscall.Syscall6(procSQLSetEnvAttr.Addr(), 4, uintptr(environmentHandle), uintptr(attribute), uintptr(valuePtr), uintptr(stringLength), 0, 0)
-	ret = SQLRETURN(r0)
-
-	trc.Trace1(fmt.Sprintf("ret = %d", ret))
-	trc.Trace1("api/zapi_windows.go SQLSetEnvAttr()- EXIT")
-	return
-}
-
-// SQLSetConnectAttr sets a connection attribute.
-func SQLSetConnectAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) (ret SQLRETURN) {
-	trc.Trace1("api/zapi_windows.go SQLSetConnectAttr() - ENTRY")
-	trc.Trace1(fmt.Sprintf("attribute=%d, valuePtr=0x%x, stringLength=%d", attribute, valuePtr, stringLength))
-
-	r0, _, _ := syscall.Syscall6(procSQLSetConnectAttrW.Addr(), 4, uintptr(connectionHandle), uintptr(attribute), uintptr(valuePtr), uintptr(stringLength), 0, 0)
-	ret = SQLRETURN(r0)
-
-	trc.Trace1(fmt.Sprintf("ret = %d", ret))
-	trc.Trace1("api/zapi_windows.go SQLSetConnectAttr()- EXIT")
-	return
-}
-
 // SQLColAttribute returns a column descriptor field.
 func SQLColAttribute(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, fieldIdentifier SQLUSMALLINT, characterAttributePtr SQLPOINTER, bufferLength SQLSMALLINT, stringLengthPtr *SQLSMALLINT, numericAttributePtr SQLPOINTER) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_windows.go SQLColAttribute() - ENTRY")

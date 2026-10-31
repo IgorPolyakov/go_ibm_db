@@ -147,15 +147,6 @@ func LoadConfiguration(filename string) (Config, error) {
 }
 
 // Get connection information from config.json
-func GetConnectionInfoFromConfigFile() {
-	config, _ := LoadConfiguration("config.json")
-	host = config.Host
-	port = config.Port
-	database = config.Database
-	uid = config.Uid
-	pwd = config.Pwd
-}
-
 // Get connection information from environment variables
 func UpdateConnectionVariables() {
 	var databaseFound bool

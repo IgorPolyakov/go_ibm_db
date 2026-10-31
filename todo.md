@@ -16,6 +16,8 @@
 
 - [x] **Документация, exhaustive, godox, revive — раунд 5 (2026-11-01).** Полная документация exported-символов (revive: 50 → 0), явные `default` в reflect.Kind-switch, все TODO-маркеры переписаны/закрыты, godot/gocritic-хвост добит, `SQLColAttribute`-параметры в camelCase, `intrange`-хвост в stmt.go. Из конфига исключены: var-naming ODBC-имён в api/, commentFormatting/godot на //sys-директивах и cgo-преамбуле. Остаток в строгом прогоне — только осознанные категории: lll 50, err113 44, mnd 35, errcheck(check-blank) 27, paralleltest 11, nestif 7, gocognit 6, gochecknoglobals 4, G103 3, funlen 1. Проверки: build/gofmt/unit ✅, default lint 0, сьют Informix 0 FAIL / 32 SKIP / 39 PASS.
 
+- [x] **Dead code — раунд 7 (2026-11-01).** Прогон `deadcode -test` (go/tools) + `unused`: удалены `api.StringToUTF16Ptr`, Go-обёртки `api.SQLSetEnvAttr`/`SQLSetConnectAttr` (unix/windows/zos; драйвер использует UIntPtr-варианты, C-обёртки сохранены), `Pool.Display` (отладочный, вызывающих нет), `testdata.GetConnectionInfoFromConfigFile`, `testingIssue5` + недостижимая ветка сна в `Exec`. `CreateDb`/`DropDb`+`SQLCreateDb`/`SQLDropDb` сохранены — документированный публичный API (API_DOCUMENTATION.md), используется тестами. `deadcode -test ./testdata` — чисто; default lint 0; сьют Informix 0 FAIL / 32 SKIP / 39 PASS.
+
 - [x] **gosec до нуля — раунд 6 (2026-11-01).** Снята дедупликация: `rows.go` ColumnType* переведены на `odbcNum` (реальный фикс индексов), конвертации ограниченных длин (conn/database/odbcstmt/column) аннотированы, G103 исключён в конфиге с обоснованием (cgo-маршалинг ODBC-буферов — назначение пакета). **gosec: 28 → 0.** Проверки: build/unit ✅, default lint 0, сьют Informix 0 FAIL / 32 SKIP / 39 PASS.
 
 ## Открытые проблемы
@@ -113,5 +115,5 @@
 - [x] **perfsprint.** *Исправлено:* `fmt.Sprintf` → конкатенация: `api/api.go`: 92; `conn.go`: 58, 136 (неиспользуемый импорт `fmt` удалён).
 - [x] **Опечатки.** *Исправлено:* `stmt.go`: 75 — «the the»; `stmt.go`: 193 — «implementes» → «implements».
 - [x] **whitespace.** *Исправлено:* `param.go`: 40 — лишняя пустая строка удалена.
-- [ ] **Глобальные состояния (gochecknoglobals/gochecknoinits).** `driver.go`: 17 (`drv`), 60 (`init`); `odbcstmt.go`: 120 (`testingIssue5`); `log2/logger1.go`: 14 (`globalvar`) — осознанно принять (`//nolint`) или изолировать.
+- [x] **Глобальные состояния (gochecknoglobals/gochecknoinits).** *Частично закрыто 2026-11-01:* `testingIssue5` удалён как dead code (никогда не записывался, ветка недостижима). Остались `drv`+`init` (driver.go — архитектура database/sql) и `globalvar`/`traceFileWarned` (log2 — трассировка) — принять осознанно.
 - [ ] **paralleltest (7 шт.).** Тесты без `t.Parallel()`: `dsn_test.go`: 12, 71; `pooling_test.go`: 10, 23, 44, 77, 98 — учитывать, что тесты `testdata/` требуют живую БД и параллелизм там небезопасен.

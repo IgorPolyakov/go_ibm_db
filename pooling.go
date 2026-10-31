@@ -345,10 +345,3 @@ func (p *Pool) SetConnMaxLifetime(num int) {
 	p.maxLifetime = time.Duration(num) * time.Second
 	p.mu.Unlock()
 }
-
-// Display prints the pool maps and size for debugging.
-func (p *Pool) Display() {
-	fmt.Println(p.availablePool)
-	fmt.Println(p.usedPool)
-	fmt.Println(p.poolSize)
-}
