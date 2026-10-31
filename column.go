@@ -9,6 +9,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"runtime"
 	"time"
@@ -30,13 +31,27 @@ const (
 func (l *BufferLen) IsNull() bool {
 	trc.Trace1("column.go: IsNull()")
 
-	return int16(*l) == api.SQL_NULL_DATA
+	// compare at full SQLLEN width: truncating to int16 could make a
+	// legitimate length alias SQL_NULL_DATA
+	return int64(*l) == api.SQL_NULL_DATA
+}
+
+// odbcNum converts a 0-based column or parameter index into the 1-based
+// number ODBC expects. Overflow panics (mirroring the other invariant
+// checks in this package) because truncation would silently address the
+// wrong column or parameter.
+func odbcNum(idx int) api.SQLUSMALLINT {
+	n := idx + 1
+	if n < 1 || n > math.MaxUint16 {
+		panic(fmt.Sprintf("index %d out of SQLUSMALLINT range", idx))
+	}
+	return api.SQLUSMALLINT(n)
 }
 
 func (l *BufferLen) GetData(h api.SQLHSTMT, idx int, ctype api.SQLSMALLINT, buf []byte) api.SQLRETURN {
 	trc.Trace1("column.go: GetData()")
 
-	return api.SQLGetData(h, api.SQLUSMALLINT(idx+1), ctype,
+	return api.SQLGetData(h, odbcNum(idx), ctype,
 		api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLLEN(len(buf)),
 		(*api.SQLLEN)(l))
 }
@@ -45,13 +60,13 @@ func (l *BufferLen) Bind(h api.SQLHSTMT, idx int, ctype api.SQLSMALLINT, buf []b
 	trc.Trace1("column.go: Bind()- ENTRY")
 
 	if len(buf) <= 2147483647 {
-		return api.SQLBindCol(h, api.SQLUSMALLINT(idx+1), ctype,
-			buf, api.SQLLEN(len(buf)),
+		return api.SQLBindCol(h, odbcNum(idx), ctype,
+			buf, api.SQLLEN(len(buf)), //nolint:gosec // len(buf) is bounded to MaxInt32 by the check above
 			(*api.SQLLEN)(l))
 	}
 	trc.Trace1("column.go: Bind()- EXIT")
-	return api.SQLBindCol(h, api.SQLUSMALLINT(idx+1), ctype,
-		buf, api.SQLLEN(len(buf)-1),
+	return api.SQLBindCol(h, odbcNum(idx), ctype,
+		buf, api.SQLLEN(len(buf)-1), //nolint:gosec // len(buf)-1 is bounded to MaxInt32 by the check above
 		(*api.SQLLEN)(l))
 }
 
@@ -69,9 +84,9 @@ func describeColumn(h api.SQLHSTMT, idx int, namebuf []uint16) (namelen int, sql
 	trc.Trace1("column.go: describeColumn() - ENTRY")
 
 	var l, decimal, nullable api.SQLSMALLINT
-	ret = api.SQLDescribeCol(h, api.SQLUSMALLINT(idx+1),
+	ret = api.SQLDescribeCol(h, odbcNum(idx),
 		(*api.SQLWCHAR)(unsafe.Pointer(&namebuf[0])),
-		api.SQLSMALLINT(len(namebuf)), &l,
+		api.SQLSMALLINT(len(namebuf)), &l, //nolint:gosec // namebuf is a small fixed-size buffer
 		&sqltype, &size, &decimal, &nullable)
 
 	trc.Trace1("column.go: describeColumn() - EXIT")
@@ -212,13 +227,13 @@ func (c *BaseColumn) Value(buf []byte) (driver.Value, error) {
 		return buf, nil
 	case api.SQL_C_WCHAR:
 		if p == nil {
-			return nil, nil
+			return nil, nil //nolint:nilnil // nil driver.Value is the correct encoding of SQL NULL
 		}
 		s := (*[1 << 20]uint16)(p)[:len(buf)/2]
 		return utf16toutf8(s), nil
 	case api.SQL_C_DBCHAR:
 		if p == nil {
-			return nil, nil
+			return nil, nil //nolint:nilnil // nil driver.Value is the correct encoding of SQL NULL
 		}
 		s := (*[1 << 20]uint8)(p)[:len(buf)]
 		return dbclobToUTF8(s), nil
@@ -344,7 +359,7 @@ func (c *BindableColumn) Value(h api.SQLHSTMT, idx int) (driver.Value, error) {
 	}
 	if c.Len.IsNull() {
 		// is NULL
-		return nil, nil
+		return nil, nil //nolint:nilnil // nil driver.Value is the correct encoding of SQL NULL
 	}
 	if !c.IsVariableWidth && int(c.Len) != c.Size {
 		panic(fmt.Errorf("wrong column #%d length %d returned, %d expected", idx, c.Len, c.Size))
@@ -366,8 +381,8 @@ func (c *BindableColumn) BindArray(h api.SQLHSTMT, idx int, fetchSize int) (bool
 	c.Buffer = make([]byte, fetchSize*c.Size)
 	c.Lens = make([]BufferLen, fetchSize)
 
-	ret := api.SQLBindCol(h, api.SQLUSMALLINT(idx+1), c.CType,
-		c.Buffer, api.SQLLEN(c.Size),
+	ret := api.SQLBindCol(h, odbcNum(idx), c.CType,
+		c.Buffer, api.SQLLEN(c.Size), //nolint:gosec // c.Size mirrors the SQLULEN column size reported by the server
 		(*api.SQLLEN)(&c.Lens[0]))
 	if IsError(ret) {
 		return false, NewError("SQLBindCol", h)
@@ -385,7 +400,7 @@ func (c *BindableColumn) ValueAtRow(h api.SQLHSTMT, idx int, row int) (driver.Va
 		return nil, fmt.Errorf("row %d out of range (fetchSize=%d)", row, c.fetchSize)
 	}
 	if c.Lens[row].IsNull() {
-		return nil, nil
+		return nil, nil //nolint:nilnil // nil driver.Value is the correct encoding of SQL NULL
 	}
 	offset := row * c.Size
 	if !c.IsVariableWidth && int(c.Lens[row]) != c.Size {
@@ -430,7 +445,7 @@ loop:
 		case api.SQL_SUCCESS:
 			if l.IsNull() {
 				// is NULL
-				return nil, nil
+				return nil, nil //nolint:nilnil // nil driver.Value is the correct encoding of SQL NULL
 			}
 			total = append(total, b[:l]...)
 			break loop

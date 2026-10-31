@@ -64,16 +64,17 @@ func NewError(apiName string, handle interface{}) error {
 	state := make([]uint16, 6)
 	msg := make([]uint16, api.SQL_MAX_MESSAGE_LENGTH)
 	for i := 1; ; i++ {
+		// odbc api on zos doesn't handle null terminated strings, the exact size is passed
 		if runtime.GOOS == "zos" {
 			ret = api.SQLGetDiagRec(ht, h, api.SQLSMALLINT(i),
 				(*api.SQLWCHAR)(unsafe.Pointer(&state[0])), &ne,
 				(*api.SQLWCHAR)(unsafe.Pointer(&msg[0])),
-				api.SQLSMALLINT(2*len(msg)), nil) // odbc api on zos doesn't handle null terminated strings, the exact size is passed
+				api.SQLSMALLINT(2*len(msg)), nil) //nolint:gosec // msg is a small fixed-size diag buffer
 		} else {
 			ret = api.SQLGetDiagRec(ht, h, api.SQLSMALLINT(i),
 				(*api.SQLWCHAR)(unsafe.Pointer(&state[0])), &ne,
 				(*api.SQLWCHAR)(unsafe.Pointer(&msg[0])),
-				api.SQLSMALLINT(len(msg)), nil)
+				api.SQLSMALLINT(len(msg)), nil) //nolint:gosec // msg is a small fixed-size diag buffer
 		}
 		if ret == api.SQL_NO_DATA {
 			break

@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,22 +20,22 @@ const (
 )
 
 func fileExists(path string) bool {
-	_, err := os.Stat(path)
+	_, err := os.Stat(path) //nolint:gosec // G703: helper with caller-controlled paths, used by the installer only
 	return err == nil
 }
 
 func dirExists(path string) bool {
-	info, err := os.Stat(path)
+	info, err := os.Stat(path) //nolint:gosec // G703: helper with caller-controlled paths, used by the installer only
 	return err == nil && info.IsDir()
 }
 
 func downloadFile(url string, filename string) error {
 	// Create HTTP GET request
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) //nolint:gosec // G107: the installer is designed to accept a download URL from the environment
 	if err != nil {
 		return fmt.Errorf("failed to fetch %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check for non-200 status
 	if resp.StatusCode != http.StatusOK {
@@ -42,11 +43,11 @@ func downloadFile(url string, filename string) error {
 	}
 
 	// Create destination file
-	out, err := os.Create("../../" + filename)
+	out, err := os.Create("../../" + filename) //nolint:gosec // G304: installer-only tool, filename is derived from the fixed IBM download
 	if err != nil {
 		return fmt.Errorf("failed to create file %s: %w", filename, err)
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	// Copy data
 	_, err = io.Copy(out, resp.Body)
@@ -58,42 +59,72 @@ func downloadFile(url string, filename string) error {
 }
 
 func Unzipping(sourcefile string, targetDirectory string) {
-	reader, err := zip.OpenReader("./../../" + sourcefile)
-	if err != nil {
+	if err := unzip(sourcefile, targetDirectory); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	defer reader.Close()
+}
+
+// maxDecompressedFileSize caps per-file extracted output so a corrupt or
+// hostile archive cannot exhaust the disk (decompression bomb). The
+// clidriver payloads are far below this limit.
+const maxDecompressedFileSize = 1 << 31 // 2 GiB
+
+func unzip(sourcefile string, targetDirectory string) error {
+	reader, err := zip.OpenReader("./../../" + sourcefile) //nolint:gosec // installer-only tool: path is fixed relative to the repo
+	if err != nil {
+		return err
+	}
+	defer func() { _ = reader.Close() }()
 	for _, f := range reader.File {
-		zipped, err := f.Open()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		defer zipped.Close()
-		path := filepath.Join(targetDirectory, f.Name)
-		if f.FileInfo().IsDir() {
-			os.MkdirAll(path, f.Mode())
-			fmt.Println("Creating directory", path)
-		} else {
-			writer, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, f.Mode())
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			defer writer.Close()
-			if _, err = io.Copy(writer, zipped); err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			fmt.Println("Unzipping : ", path)
+		if err := extractZipEntry(f, targetDirectory); err != nil {
+			return err
 		}
 	}
+	return nil
+}
+
+func extractZipEntry(f *zip.File, targetDirectory string) error {
+	zipped, err := f.Open()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = zipped.Close() }()
+
+	path := filepath.Join(targetDirectory, f.Name) //nolint:gosec // G305: checked by the zip-slip guard below
+	// zip-slip guard: reject entries that escape the target directory
+	cleanTarget := filepath.Clean(targetDirectory)
+	if path != cleanTarget && !strings.HasPrefix(path, cleanTarget+string(os.PathSeparator)) {
+		return fmt.Errorf("archive entry %q escapes target directory", f.Name)
+	}
+	if f.FileInfo().IsDir() {
+		if err := os.MkdirAll(path, f.Mode()); err != nil { //nolint:gosec // G703: path is checked by the zip-slip guard above
+			return fmt.Errorf("creating directory %s: %w", path, err)
+		}
+		fmt.Println("Creating directory", path)
+		return nil
+	}
+	writer, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, f.Mode()) //nolint:gosec // G304: path is checked by the zip-slip guard above
+	if err != nil {
+		return err
+	}
+	n, copyErr := io.Copy(writer, io.LimitReader(zipped, maxDecompressedFileSize+1))
+	if cerr := writer.Close(); copyErr == nil {
+		copyErr = cerr
+	}
+	if copyErr != nil {
+		return copyErr
+	}
+	if n > maxDecompressedFileSize {
+		return fmt.Errorf("archive entry %q decompresses beyond %d bytes", f.Name, maxDecompressedFileSize)
+	}
+	fmt.Println("Unzipping : ", path)
+	return nil
 }
 
 func linux_untar(clidriver string, targetDirectory string, ibmdbDir string) error {
 	fmt.Printf("Extracting with tar -xzf %s -C %s", clidriver, targetDirectory)
-	out, err := exec.Command("tar", "xzf", "./../../"+clidriver, "-C", targetDirectory).Output()
+	out, err := exec.CommandContext(context.Background(), "tar", "xzf", "./../../"+clidriver, "-C", targetDirectory).Output() //nolint:gosec // G204: installer tool, arguments are built from the fixed IBM archive name
 
 	fmt.Println(string(out))
 	if err != nil {
@@ -118,7 +149,7 @@ func linux_untar(clidriver string, targetDirectory string, ibmdbDir string) erro
 
 func aix_untar(clidriver string, targetDirectory string) error {
 	fmt.Printf("Extracting with gunzip %s", clidriver)
-	gunzipOut, err := exec.Command("gunzip", "./../../"+clidriver).Output()
+	gunzipOut, err := exec.Command("gunzip", "./../../"+clidriver).Output() //nolint:gosec // G204: installer tool, argument is the fixed IBM archive name
 
 	fmt.Println(string(gunzipOut))
 	if err != nil {
@@ -129,7 +160,7 @@ func aix_untar(clidriver string, targetDirectory string) error {
 	clidriver = strings.TrimRight(clidriver, ".gz")
 
 	fmt.Printf("Extracting with tar -xvf %s -C %s", clidriver, targetDirectory)
-	tarOut, err := exec.Command("tar", "xvf", "./../../"+clidriver, "-C", targetDirectory).Output()
+	tarOut, err := exec.Command("tar", "xvf", "./../../"+clidriver, "-C", targetDirectory).Output() //nolint:gosec // G204/G305: installer tool, arguments are the fixed IBM archive and target
 
 	fmt.Println(string(tarOut))
 	if err != nil {
@@ -200,7 +231,7 @@ func main() {
 		fmt.Println("DB2HOME environment variable is set to", path)
 	}
 
-	out, err11 = exec.Command("db2cli", "validate").Output()
+	out, err11 = exec.CommandContext(context.Background(), "db2cli", "validate").Output()
 	if err11 != nil {
 		// db2cli validate is not working, check for IBM_DB_HOME
 		ibmDBHome, found := os.LookupEnv("IBM_DB_HOME")
@@ -259,7 +290,7 @@ func main() {
 			os.Exit(2)
 		} else {
 			// Attempt to remove the directory and its contents
-			err2 := os.RemoveAll(existingDriver)
+			err2 := os.RemoveAll(existingDriver) //nolint:gosec // G703: installer removes its own previously extracted directory
 			if err2 != nil {
 				fmt.Printf("Error deleting directory '%s': %v\n", existingDriver, err2)
 			} else {
@@ -376,9 +407,13 @@ func main() {
 	case 1:
 		Unzipping(cliFileName, target)
 	case 3:
-		aix_untar(cliFileName, target)
+		if err := aix_untar(cliFileName, target); err != nil {
+			fmt.Println("Error extracting archive:", err)
+		}
 	default:
-		linux_untar(cliFileName, target, ibmdbDir)
+		if err := linux_untar(cliFileName, target, ibmdbDir); err != nil {
+			fmt.Println("Error extracting archive:", err)
+		}
 	}
 }
 

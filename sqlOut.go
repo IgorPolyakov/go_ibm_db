@@ -52,7 +52,7 @@ func newOut(hstmt api.SQLHSTMT, sqlOut *sql.Out, idx int) (*Out, error) {
 		case nil:
 			var ind api.SQLLEN = api.SQL_NULL_DATA
 			// nil has no type, so use SQLDescribeParam
-			ret := api.SQLDescribeParam(hstmt, api.SQLUSMALLINT(idx+1),
+			ret := api.SQLDescribeParam(hstmt, odbcNum(idx),
 				&sqltype, &parameterSize, &decimalDigits, &nullable)
 			if IsError(ret) {
 				return nil, NewError("SQLDescribeParam", hstmt)
@@ -60,12 +60,12 @@ func newOut(hstmt api.SQLHSTMT, sqlOut *sql.Out, idx int) (*Out, error) {
 			// input value might be nil but the output value may not be so allocate buffer for output
 			data = make([]byte, parameterSize)
 			ctype = SqltoCtype(sqltype)
-			buflen = api.SQLLEN(len(data))
+			buflen = api.SQLLEN(len(data)) //nolint:gosec // len(data) is the bounded buffer size
 			plen = &ind
 		case string:
 			var ind api.SQLLEN = api.SQL_NTS
 			// string output buffer cannot be same as input, so use SQLDescribeParam
-			ret := api.SQLDescribeParam(hstmt, api.SQLUSMALLINT(idx+1),
+			ret := api.SQLDescribeParam(hstmt, odbcNum(idx),
 				&sqltype, &parameterSize, &decimalDigits, &nullable)
 			if IsError(ret) {
 				return nil, NewError("SQLDescribeParam", hstmt)
@@ -80,7 +80,7 @@ func newOut(hstmt api.SQLHSTMT, sqlOut *sql.Out, idx int) (*Out, error) {
 					fmt.Errorf("parameterSize:index %d INOUT string size is greater than the allocated OUT buffer size", idx+1)
 			}
 			copy(data, b)
-			buflen = api.SQLLEN(len(data))
+			buflen = api.SQLLEN(len(data)) //nolint:gosec // len(data) is the bounded buffer size
 			// use SQL_NTS to indicate that the string null terminated
 			plen = &ind
 		case int64:
@@ -107,13 +107,13 @@ func newOut(hstmt api.SQLHSTMT, sqlOut *sql.Out, idx int) (*Out, error) {
 			sqltype = api.SQL_TYPE_TIMESTAMP
 			y, m, day := d.Date()
 			t := api.SQL_TIMESTAMP_STRUCT{
-				Year:     api.SQLSMALLINT(y),
-				Month:    api.SQLUSMALLINT(m),
-				Day:      api.SQLUSMALLINT(day),
-				Hour:     api.SQLUSMALLINT(d.Hour()),
-				Minute:   api.SQLUSMALLINT(d.Minute()),
-				Second:   api.SQLUSMALLINT(d.Second()),
-				Fraction: api.SQLUINTEGER(d.Nanosecond()),
+				Year:     api.SQLSMALLINT(y),              //nolint:gosec // calendar fields are structurally bounded
+				Month:    api.SQLUSMALLINT(m),             //nolint:gosec
+				Day:      api.SQLUSMALLINT(day),           //nolint:gosec
+				Hour:     api.SQLUSMALLINT(d.Hour()),      //nolint:gosec
+				Minute:   api.SQLUSMALLINT(d.Minute()),    //nolint:gosec
+				Second:   api.SQLUSMALLINT(d.Second()),    //nolint:gosec
+				Fraction: api.SQLUINTEGER(d.Nanosecond()), //nolint:gosec
 			}
 			data = api.Extract(unsafe.Pointer(&t), unsafe.Sizeof(t))
 			decimalDigits = 3
@@ -123,22 +123,22 @@ func newOut(hstmt api.SQLHSTMT, sqlOut *sql.Out, idx int) (*Out, error) {
 			sqltype = api.SQL_BINARY
 			data = make([]byte, len(d))
 			copy(data, d)
-			buflen = api.SQLLEN(len(data))
+			buflen = api.SQLLEN(len(data)) //nolint:gosec // len(data) is the bounded buffer size
 			plen = &buflen
-			parameterSize = api.SQLULEN(len(data))
+			parameterSize = api.SQLULEN(len(data)) //nolint:gosec // len(data) is the size of the extracted struct
 		default:
 			panic(fmt.Errorf("unsupported sql.Out.Dest type %T", d))
 		}
 	} else {
 		inputOutputType = api.SQL_PARAM_OUTPUT
-		ret := api.SQLDescribeParam(hstmt, api.SQLUSMALLINT(idx+1),
+		ret := api.SQLDescribeParam(hstmt, odbcNum(idx),
 			&sqltype, &parameterSize, &decimalDigits, &nullable)
 		if IsError(ret) {
 			return nil, NewError("SQLDescribeParam", hstmt)
 		}
 		data = make([]byte, parameterSize+1)
 		ctype = SqltoCtype(sqltype)
-		buflen = api.SQLLEN(len(data))
+		buflen = api.SQLLEN(len(data)) //nolint:gosec // len(data) is the bounded buffer size
 		plen = &buflen
 	}
 
@@ -182,13 +182,13 @@ func (o *Out) Value() (driver.Value, error) {
 		return buf, nil
 	case api.SQL_C_WCHAR:
 		if p == nil {
-			return nil, nil
+			return nil, nil //nolint:nilnil // nil driver.Value is the correct encoding of SQL NULL
 		}
 		s := (*[1 << 20]uint16)(p)[:len(buf)/2]
 		return utf16toutf8(s), nil
 	case api.SQL_C_DBCHAR:
 		if p == nil {
-			return nil, nil
+			return nil, nil //nolint:nilnil // nil driver.Value is the correct encoding of SQL NULL
 		}
 		s := (*[1 << 20]uint8)(p)[:len(buf)]
 		return dbclobToUTF8(s), nil

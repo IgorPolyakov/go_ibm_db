@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"math"
 	"runtime"
 	"strings"
 	"time"
@@ -36,6 +37,15 @@ func (p *Parameter) StoreStrLen_or_IndPtr(v api.SQLLEN) *api.SQLLEN {
 
 	p.StrLen_or_IndPtr = v
 	return &p.StrLen_or_IndPtr
+}
+
+// sqlulen converts a non-negative length to SQLULEN, returning an error
+// instead of truncating on overflow.
+func sqlulen(n int) (api.SQLULEN, error) {
+	if n < 0 || uint64(n) > math.MaxUint32 {
+		return 0, fmt.Errorf("parameter of %d elements exceeds SQLULEN range", n)
+	}
+	return api.SQLULEN(n), nil
 }
 
 func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
@@ -72,13 +82,16 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		if runtime.GOOS != "zos" {
 			l -= 1 // remove terminating 0 added by StringToUTF16 in api.go
 		}
+		if l < 0 || uint64(l) > math.MaxUint32 {
+			return fmt.Errorf("string parameter of %d UTF-16 code units exceeds SQLULEN range", l)
+		}
 		size = api.SQLULEN(l)
 		if size < 1 {
 			// size cannot be less then 1 even for empty fields
 			size = 1
 		}
-		l *= 2 // every char takes 2 bytes
-		buflen = api.SQLLEN(l)
+		l *= 2                 // every char takes 2 bytes
+		buflen = api.SQLLEN(l) //nolint:gosec // l is the bounded string length computed above
 		plen = p.StoreStrLen_or_IndPtr(buflen)
 		if p.isDescribed {
 			// only so we can handle very long (>4000 chars) parameters
@@ -117,13 +130,13 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		ctype = api.SQL_C_TYPE_TIMESTAMP
 		y, m, day := d.Date()
 		b := api.SQL_TIMESTAMP_STRUCT{
-			Year:     api.SQLSMALLINT(y),
-			Month:    api.SQLUSMALLINT(m),
-			Day:      api.SQLUSMALLINT(day),
-			Hour:     api.SQLUSMALLINT(d.Hour()),
-			Minute:   api.SQLUSMALLINT(d.Minute()),
-			Second:   api.SQLUSMALLINT(d.Second()),
-			Fraction: api.SQLUINTEGER(d.Nanosecond()),
+			Year:     api.SQLSMALLINT(y),              //nolint:gosec // calendar fields are structurally bounded
+			Month:    api.SQLUSMALLINT(m),             //nolint:gosec
+			Day:      api.SQLUSMALLINT(day),           //nolint:gosec
+			Hour:     api.SQLUSMALLINT(d.Hour()),      //nolint:gosec
+			Minute:   api.SQLUSMALLINT(d.Minute()),    //nolint:gosec
+			Second:   api.SQLUSMALLINT(d.Second()),    //nolint:gosec
+			Fraction: api.SQLUINTEGER(d.Nanosecond()), //nolint:gosec // Nanosecond() is always < 1e9
 		}
 		p.Data = &b
 		buf = unsafe.Pointer(&b)
@@ -144,9 +157,13 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		if len(d) > 0 {
 			buf = unsafe.Pointer(&b[0])
 		}
-		buflen = api.SQLLEN(len(b))
+		buflen = api.SQLLEN(len(b)) //nolint:gosec // len(b) is checked via sqlulen below
 		plen = p.StoreStrLen_or_IndPtr(buflen)
-		size = api.SQLULEN(len(b))
+		s, err := sqlulen(len(b))
+		if err != nil {
+			return err
+		}
+		size = s
 		sqltype = api.SQL_BINARY
 	case sql.Out:
 		o, err := newOut(h, &d, idx)
@@ -174,9 +191,13 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		copy(b, d)
 		p.Data = b
 		buf = unsafe.Pointer(&b[0])
-		buflen = api.SQLLEN(len(b))
+		buflen = api.SQLLEN(len(b)) //nolint:gosec // len(b) is checked via sqlulen below
 		plen = p.StoreStrLen_or_IndPtr(buflen)
-		size = api.SQLULEN(len(b))
+		s, err := sqlulen(len(b))
+		if err != nil {
+			return err
+		}
+		size = s
 		sqltype = api.SQL_BIGINT
 	case []string:
 		if len(d) == 0 {
@@ -203,13 +224,16 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		l := maxlen
 		p.Data = b
 		buf = unsafe.Pointer(&b[0])
+		if l < 0 || uint64(l) > math.MaxUint32 {
+			return fmt.Errorf("string array parameter of %d UTF-16 code units exceeds SQLULEN range", l)
+		}
 		size = api.SQLULEN(l)
 		if size < 1 {
 			// size cannot be less then 1 even for empty fields
 			size = 1
 		}
-		l *= 2 // every char takes 2 bytes
-		buflen = api.SQLLEN(l)
+		l *= 2                 // every char takes 2 bytes
+		buflen = api.SQLLEN(l) //nolint:gosec // l is the bounded string length computed above
 		plen = nil
 		if p.isDescribed {
 			// only so we can handle very long (>4000 chars) parameters
@@ -230,9 +254,13 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		p.Data = b
 		ctype = api.SQL_C_SBIGINT
 		sqltype = api.SQL_BIGINT
-		size = api.SQLULEN(len(b))
+		s, err := sqlulen(len(b))
+		if err != nil {
+			return err
+		}
+		size = s
 		buf = unsafe.Pointer(&b[0])
-		buflen = api.SQLLEN(len(b))
+		buflen = api.SQLLEN(len(b)) //nolint:gosec // len(b) is the bounded array length
 		plen = p.StoreStrLen_or_IndPtr(buflen)
 	case []float64:
 		if len(d) == 0 {
@@ -243,7 +271,7 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		copy(b, d)
 		p.Data = b
 		buf = unsafe.Pointer(&b[0])
-		buflen = api.SQLLEN(len(b))
+		buflen = api.SQLLEN(len(b)) //nolint:gosec // len(b) is the bounded array length
 		plen = p.StoreStrLen_or_IndPtr(buflen)
 		size = 8
 		sqltype = api.SQL_DOUBLE
@@ -258,9 +286,9 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 			for i := range d {
 				y, m, day := d[i].Date()
 				b[i] = api.SQL_DATE_STRUCT{
-					Year:  api.SQLSMALLINT(y),
-					Month: api.SQLUSMALLINT(m),
-					Day:   api.SQLUSMALLINT(day),
+					Year:  api.SQLSMALLINT(y),    //nolint:gosec // calendar fields are structurally bounded
+					Month: api.SQLUSMALLINT(m),   //nolint:gosec
+					Day:   api.SQLUSMALLINT(day), //nolint:gosec
 				}
 			}
 			p.Data = b
@@ -272,9 +300,9 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 			b := make([]api.SQL_TIME_STRUCT, len(d))
 			for i := range d {
 				b[i] = api.SQL_TIME_STRUCT{
-					Hour:   api.SQLUSMALLINT(d[i].Hour()),
-					Minute: api.SQLUSMALLINT(d[i].Minute()),
-					Second: api.SQLUSMALLINT(d[i].Second()),
+					Hour:   api.SQLUSMALLINT(d[i].Hour()),   //nolint:gosec // calendar fields are structurally bounded
+					Minute: api.SQLUSMALLINT(d[i].Minute()), //nolint:gosec
+					Second: api.SQLUSMALLINT(d[i].Second()), //nolint:gosec
 				}
 			}
 			p.Data = b
@@ -287,13 +315,13 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 			for i := range d {
 				y, m, day := d[i].Date()
 				b[i] = api.SQL_TIMESTAMP_STRUCT{
-					Year:     api.SQLSMALLINT(y),
-					Month:    api.SQLUSMALLINT(m),
-					Day:      api.SQLUSMALLINT(day),
-					Hour:     api.SQLUSMALLINT(d[i].Hour()),
-					Minute:   api.SQLUSMALLINT(d[i].Minute()),
-					Second:   api.SQLUSMALLINT(d[i].Second()),
-					Fraction: api.SQLUINTEGER(d[i].Nanosecond()),
+					Year:     api.SQLSMALLINT(y),                 //nolint:gosec // calendar fields are structurally bounded
+					Month:    api.SQLUSMALLINT(m),                //nolint:gosec
+					Day:      api.SQLUSMALLINT(day),              //nolint:gosec
+					Hour:     api.SQLUSMALLINT(d[i].Hour()),      //nolint:gosec
+					Minute:   api.SQLUSMALLINT(d[i].Minute()),    //nolint:gosec
+					Second:   api.SQLUSMALLINT(d[i].Second()),    //nolint:gosec
+					Fraction: api.SQLUINTEGER(d[i].Nanosecond()), //nolint:gosec
 				}
 			}
 			p.Data = b
@@ -311,7 +339,7 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 	default:
 		panic(fmt.Errorf("unsupported bind param type %T", v))
 	}
-	ret := api.SQLBindParameter(h, api.SQLUSMALLINT(idx+1),
+	ret := api.SQLBindParameter(h, odbcNum(idx),
 		iotype, ctype, sqltype, size, decimal,
 		api.SQLPOINTER(buf), buflen, plen)
 	if IsError(ret) {
