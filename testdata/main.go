@@ -26,9 +26,10 @@ var connStr string
 
 // Supported values for DB2_TARGET_PLATFORM env var.
 const (
-	PlatformLUW   = "LUW"
-	PlatformZOS   = "ZOS"
-	PlatformAS400 = "AS400"
+	PlatformLUW      = "LUW"
+	PlatformZOS      = "ZOS"
+	PlatformAS400    = "AS400"
+	PlatformInformix = "INFORMIX"
 )
 
 // TargetPlatform returns the normalized DB2_TARGET_PLATFORM env var if set
@@ -86,7 +87,8 @@ func detectPlatform() string {
 // classifyPlatform maps an ODBC SQL_DBMS_NAME string to a testdata platform
 // constant, matching the heuristic used by IBM's own python-ibmdb test
 // suite: z/OS reports the exact string "DB2" (no platform suffix) or a name
-// prefixed with "DSN"; IBM i is prefixed "AS"; LUW is prefixed "DB2/".
+// prefixed with "DSN"; IBM i is prefixed "AS"; LUW is prefixed "DB2/";
+// Informix reports "IDS/<platform>", e.g. "IDS/UNIX64".
 func classifyPlatform(name string) string {
 	upper := strings.ToUpper(name)
 	switch {
@@ -94,6 +96,8 @@ func classifyPlatform(name string) string {
 		return PlatformZOS
 	case strings.HasPrefix(upper, "AS"):
 		return PlatformAS400
+	case strings.HasPrefix(upper, "IDS/"):
+		return PlatformInformix
 	default:
 		return PlatformLUW
 	}

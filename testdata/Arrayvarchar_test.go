@@ -7,6 +7,7 @@ import (
 )
 
 func TestVarcharArray(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	if VarcharArray_1() != nil {
 		t.Error("Error at VarcharArray")
 	}

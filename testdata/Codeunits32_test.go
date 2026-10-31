@@ -8,6 +8,7 @@ import (
 )
 
 func TestCodeunits32(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	// CODEUNITS32 length units are not accepted by Db2 for z/OS or Db2 for i.
 	SkipOnPlatform(t, PlatformZOS, PlatformAS400)
 	if ChineseCharCodeunits32_1() != nil {

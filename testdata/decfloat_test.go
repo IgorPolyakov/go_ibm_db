@@ -7,6 +7,7 @@ import (
 )
 
 func TestDecfloat(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	if Decfloat() != nil {
 		t.Error("Error at Decfloat")
 	}

@@ -11,6 +11,7 @@ import (
 
 // Issue 223 and 236
 func TestDecimalInsertByString(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	if DecimalInsertByString() != 1 {
 		t.Error("Error at DecimalInsertByString")
 	}

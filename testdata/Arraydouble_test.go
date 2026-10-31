@@ -7,6 +7,7 @@ import (
 )
 
 func TestDoubleArray(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	if DoubleArray_1() != nil {
 		t.Error("Error at DoubleArray")
 	}

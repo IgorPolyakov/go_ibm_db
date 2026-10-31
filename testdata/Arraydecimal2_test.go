@@ -7,6 +7,7 @@ import (
 )
 
 func TestDecimal2Array(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	if Decimal2Array_1() != nil {
 		t.Error("Error at Decimal2Array")
 	}

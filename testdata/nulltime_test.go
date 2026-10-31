@@ -8,6 +8,7 @@ import (
 )
 
 func TestNullValueTime(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	// Shared table includes a BOOLEAN column, unsupported on Db2 for z/OS.
 	SkipOnPlatform(t, PlatformZOS)
 	if NullValueTime() != nil {

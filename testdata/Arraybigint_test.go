@@ -7,6 +7,7 @@ import (
 )
 
 func TestBigintArray(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	if BigintArray() != nil {
 		t.Error("Error at BigintArray")
 	}

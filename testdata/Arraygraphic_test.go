@@ -7,7 +7,7 @@ import (
 )
 
 func TestGraphicArray(t *testing.T) {
-	SkipOnPlatform(t, PlatformZOS)
+	SkipOnPlatform(t, PlatformZOS, PlatformInformix)
 	if GraphicArray_1() != nil {
 		t.Error("Error at GraphicArray")
 	}

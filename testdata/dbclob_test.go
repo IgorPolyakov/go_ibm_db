@@ -6,6 +6,7 @@ import (
 )
 
 func TestDBClobDoubleByteChars(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	// GRAPHIC/VARGRAPHIC on Db2 for i (AS400) is strictly double-byte (DBCS);
 	// mixing single-byte ASCII with double-byte chars in a G'...' literal is
 	// not well-defined there and corrupts the SBCS portion on round-trip.

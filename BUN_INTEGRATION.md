@@ -1,5 +1,3 @@
-
-
 ## Bun ORM Integration
 
 ### Overview

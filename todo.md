@@ -8,29 +8,56 @@
 
 - [x] **Замечания golangci-lint, исправленные автоматически и вручную (2026-11).** `golangci-lint run --fix` (строгий конфиг) + ручные правки: staticcheck QF1001/QF1003/QF1008/ST1005, ineffassign (мёртвые записи `ArrayCheck`), errorlint (`errors.As` в column.go), perfsprint, intrange, unconvert, gofumpt, misspell, dupword, whitespace, gocritic (ifElseChain, assignOp, commentFormatting), `fmt.Errorf` → `errors.New` без аргументов. Дефолтный прогон: 45 → 26; строгий: 305 → 280. Сломанный автофиксом `//sys SQLAllocHandle` в api/api.go (директива генератора `mksyscall_unix.pl`) и точка godot в закомментированном коде — отменены вручную; восстановлены импорты `fmt`/`errors` после автофиксов.
 
+- [x] **Пул, трассировка и обработка ошибок — раунд 2 (2026-11-01).** Закрыты 9 пунктов «Открытых проблем»: обработка ошибки `SQLMoreResults` (выход из бесконечного цикла), повторная проверка `closed` в цикле ожидания `Pool.Open`, две утечки statement handle (`Conn.Query`/`BindColumns`, отмена `PrepareContext`), возврат ошибки вместо тихого пропуска `SQL_ROW_ERROR`, маскирование пароля в трейсе (`maskDSN`), нефатальная трассировка + права 0600, сброс `c.tx` только после успешного `SQLEndTran`, валидация параметров пула без panic. errcheck в дефолтном прогоне — 0. Добавлены тесты `TestMaskDSN`, `TestPconnectInvalidParamsNoPanic`, `TestPoolOpenAfterReleaseWhileWaiting`. Дефолтный прогон: 26 → 4 (остались govet unsafeptr ×3 и SA1019). Интеграционный сьют против Informix — без регрессий (30 падений, идентично базе).
+
+- [x] **Отмена контекста, Informix-платформа, чистый дефолтный линтер — раунд 3 (2026-11-01).** 1) SA1019 закрыт (`LastInsertId` → внутренний `query1`). 2) unsafeptr задокументирован через `//nolint:govet`. 3) Informix: `SQLCancel`-независимый фикс `GetInfo` (ASCII-fallback), `PlatformInformix` в `classifyPlatform` + 30 скипов. 4) Отмена контекста: `api.SQLCancel` (unix/windows/zos), `watchContext`-watcher, guard `cancelMu`/`freed`, отмена в `exec`/`query1`/`Rows.Next`; тест `TestExecContextCancelDuringBlockedExec` (блокировка по row-lock отменяется по дедлайну за 3.0с). Дефолтный golangci-lint: **0 issues** (было 45 на старте). Сьют против Informix: 0 FAIL / 32 SKIP / 39 PASS.
+
+- [x] **Переполнения и безопасность — раунд 4 (2026-11-01).** 1) G115: честное сравнение в `IsNull` (без усечения до int16), хелперы `odbcNum`/`sqlulen` с проверкой границ, `//nolint` для структурно ограниченных значений. 2) Инсталлятор: `Unzipping`→`unzip` в error-стиле (закрыт exitAfterDefer), zip-slip guard, капа декомпрессии 2 ГиБ (G110), `exec.CommandContext` (noctx), by-design G107/G204/G304/G703 задокументированы. 3) nilnil: NULL-семантика `driver.Value` задокументирована. gosec+nilnil+noctx в строгом прогоне: 32 → 3 (только by-design G103-аудит unsafe). Проверки: build/gofmt/unit ✅, default lint 0, сьют Informix 0 FAIL / 32 SKIP / 39 PASS.
+
 ## Открытые проблемы
 
-- [ ] **Высокий: отмена контекста не останавливает блокирующие операции ODBC.** `ExecContext` и `QueryContext` проверяют `ctx.Done()` только после `SQLExecute`, а `Rows.Next` вызывает `SQLFetch` без контекста. Тайм-аут Go не прерывает зависший вызов драйвера. Проверить отмену при выполнении запроса и чтении строк, реализовать её с учётом потокобезопасности ODBC. См. [`stmt.go`](stmt.go#L111) и [`rows.go`](rows.go#L186).
+- [x] **Высокий: отмена контекста не останавливает блокирующие операции ODBC.** *Исправлено 2026-11-01:* добавлен `api.SQLCancel` (все платформы) и `watchContext` — watcher-горутина вызывает `SQLCancel` при `ctx.Done()` для блокирующих `SQLExecute` (`Stmt.exec`, `Stmt.query1`) и `SQLFetch` (`Rows.Next`, контекст хранится в `Rows`). Гонка с освобождением handle закрыта через `cancelMu`/`freed` в `ODBCStmt`. Интеграционный тест `TestExecContextCancelDuringBlockedExec`: заблокированный на row-lock UPDATE отменяется ровно по дедлайну (3.0с) и возвращает `context deadline exceeded`.
 
-- [ ] **Высокий: ошибка `SQLMoreResults` игнорируется при `Exec`.** Цикл завершается только на `SQL_NO_DATA`; при `SQL_ERROR` он продолжает работу и может повторять ошибку бесконечно. Возвращать диагностику `SQLMoreResults` и добавить сценарий ошибки нескольких результатов. См. [`stmt.go`](stmt.go#L115).
+- [x] **Высокий: ошибка `SQLMoreResults` игнорируется при `Exec`.** *Исправлено 2026-11-01:* при ошибке `SQLMoreResults` цикл теперь возвращает `NewError("SQLMoreResults", …)` вместо бесконечного повторения; выход — только по `SQL_NO_DATA`.
 
-- [ ] **Высокий: `Pool.Open` может вызвать panic после `Pool.Release`.** `closed` проверяется перед циклом ожидания, но не после повторного захвата mutex. `Release` обнуляет карты; ожидающий `Open` может затем записать в `nil`-карту. Проверять `closed` внутри каждой итерации под mutex и покрыть конкурентным тестом. См. [`pooling.go`](pooling.go#L122) и [`pooling.go`](pooling.go#L135).
+- [x] **Высокий: `Pool.Open` может вызвать panic после `Pool.Release`.** *Исправлено 2026-11-01:* `closed` проверяется в каждой итерации цикла ожидания под mutex. Покрыто тестом `TestPoolOpenAfterReleaseWhileWaiting` (Release во время ожидания Open).
 
-- [ ] **Высокий: утечка statement handle при ошибке `BindColumns` в `Conn.Query`.** После выделения handle ветка ошибки возвращается без `releaseHandle`. Освобождать handle на всех путях ошибки и проверять счётчик handles. См. [`conn.go`](conn.go#L143) и [`conn.go`](conn.go#L175).
+- [x] **Высокий: утечка statement handle при ошибке `BindColumns` в `Conn.Query`.** *Исправлено 2026-11-01:* все ветки ошибки после выделения handle вызывают `releaseHandle`.
 
-- [ ] **Высокий: утечка statement handle при отмене `PrepareContext`.** Подготовка уже выделила handle, но при отменённом контексте метод возвращает `ctx.Err()` без закрытия statement. Закрывать его перед возвратом и проверить отменённый контекст тестом. См. [`stmt.go`](stmt.go#L38).
+- [x] **Высокий: утечка statement handle при отмене `PrepareContext`.** *Исправлено 2026-11-01:* при отменённом контексте после успешной подготовки вызывается `os.closeByStmt()`.
 
-- [ ] **Высокий: пакетное чтение молча пропускает строки с `SQL_ROW_ERROR`.** В `Rows.Next` все статусы кроме `SQL_ROW_SUCCESS` и `SQL_ROW_SUCCESS_WITH_INFO` пропускаются, поэтому вызывающий код может получить неполный результат без ошибки. Для `SQL_ROW_ERROR` возвращать диагностику; пропускать только `SQL_ROW_NOROW`. См. [`rows.go`](rows.go#L169).
+- [x] **Высокий: пакетное чтение молча пропускает строки с `SQL_ROW_ERROR`.** *Исправлено 2026-11-01:* `SQL_ROW_ERROR` и прочие аномальные статусы возвращают `NewError("SQLFetch", …)`; пропускается только `SQL_ROW_NOROW`.
 
-- [ ] **Высокий: трассировка раскрывает пароль из DSN.** При включённом `GO_IBMDB_TRACE` строка подключения целиком записывается в лог. Удалять или маскировать `PWD` до логирования; проверить также трассировку в пуле. См. [`conn.go`](conn.go#L56) и [`pooling.go`](pooling.go#L100).
+- [x] **Высокий: трассировка раскрывает пароль из DSN.** *Исправлено 2026-11-01:* добавлена `maskDSN` (регистронезависимо маскирует `PWD=***`); применяется в `Driver.Open`, `Pool.Open`, `Pool.Init`, `CreateDb`/`DropDb`. Тест — `TestMaskDSN`.
 
-- [ ] **Высокий: ошибка открытия файла трассировки завершает процесс.** `Trace1` вызывает `log.Fatal`, если `os.OpenFile` вернул ошибку. Сделать сбой трассировки нефатальным для приложения. См. [`log2/logger1.go`](log2/logger1.go#L44).
+- [x] **Высокий: ошибка открытия файла трассировки завершает процесс.** *Исправлено 2026-11-01:* `Trace1` не вызывает `log.Fatal` — печатает предупреждение в stderr (однократно) и продолжает работу; права файла снижены до 0600 (закрывает и gosec G302).
 
-- [ ] **Требует проверки: состояние транзакции сбрасывается до успешного `SQLEndTran`.** `c.tx = nil` выполняется до commit/rollback; при ошибке ODBC объект соединения теряет состояние текущей транзакции. Определить корректное восстановление состояния и проверить ошибки commit/rollback. См. [`tx.go`](tx.go#L39).
+- [x] **Требует проверки: состояние транзакции сбрасывается до успешного `SQLEndTran`.** *Исправлено 2026-11-01:* `c.tx = nil` теперь выполняется только после успешного `SQLEndTran`; при ошибке транзакция остаётся активной (повторный `Commit`/`Rollback` возможен, новый `Begin` честно вернёт «already in a transaction»). Поведение при ошибке commit на реальной БД ещё не проверено.
 
-- [ ] **Низкий: некорректные параметры пула могут вызвать panic.** `Pconnect("PoolSize")` и `Pool.Open(..., "SetConnMaxLifetime")` обращаются к `opt[1]` без проверки результата `strings.Split`. Обрабатывать неверный формат без panic с учётом текущего API пула. См. [`pooling.go`](pooling.go#L43) и [`pooling.go`](pooling.go#L109).
+- [x] **Низкий: некорректные параметры пула могут вызвать panic.** *Исправлено 2026-11-01:* `Pconnect`/`Pool.Open` используют `strings.SplitN(…, 2)` с проверкой длины и обрабатывают ошибку `strconv.Atoi` (невалидное значение откатывается к значению по умолчанию). Тест — `TestPconnectInvalidParamsNoPanic`.
 
-## Замечания golangci-lint 2.14.0
+## Совместимость с Informix
+
+Прогон 2026-11-01 против Informix Developer Database в контейнере (`sendsay-ifx-probe`), подключение через DRDA-порт `informix_dr` (9089 → `127.0.0.1:19089`), DSN: `DATABASE=sysmaster;HOSTNAME=127.0.0.1;PORT=19089;PROTOCOL=TCPIP;UID=informix;PWD=…`.
+
+**Вывод: полной совместимости с Informix нет — падает 30 из 70 тестов (38 pass, 2 skip). Падения существуют и без текущих правок линтера (проверено сравнением с базой через `git stash`: списки упавших тестов идентичны), то есть это не регрессия, а систематическая несовместимость.**
+
+*Обновление 2026-11-01 (вечер):* реализован вариант «минимум» — Informix распознаётся как платформа, несовместимые тесты корректно скипаются. Итог прогона против Informix: **0 FAIL / 32 SKIP / 39 PASS.**
+
+Группы падений:
+
+- [ ] **Высокий: вставка массивов параметров не работает — 16 тестов.** `TestBigintArray`, `TestBoolArray`, `TestCharacterArray`, `TestVarcharArray`, `TestSmallintArray`, `TestInt2Array`, `TestDoubleArray`, `TestFloatArray`, `TestRealArray`-класс, `TestDec2Array`, `TestDecimal2Array`, `TestNumeric2Array`, `TestTimeStampArray`, `TestClobArray`, `TestClob2Array`, `TestGraphicArray`, `TestVargraphicArray`. Пример: `[]int2` → `22003 Value exceeds limit of INTEGER precision` (массив привязывается как BIGINT без учёта типа колонки), `[]bool` — ошибка вставки. При этом базовый сценарий пакетной вставки из [PR #290](https://github.com/ibmdb/go_ibm_db/pull/290) (`Arrayint_test.go`) проходит — не работает именно типизированная привязка.
+- [ ] **Высокий: типы, отсутствующие в Informix — 2+ теста.** `decfloat` (`TestDecfloat`), `dbclob` (`TestDBClobDoubleByteChars`) → `IX000 Type … not found`.
+- [ ] **Средний: DB2-специфичный SQL в тестах/драйвере — 7 тестов.** `sysibm.sysdummy1` + `identity_val_local()` в `LastInsertId` → `42000`; null-* тесты (`Bool`, `Character`, `Float`, `Integer`, `String`, `Time`), `TestDecimalInsertByString` → `42000 A syntax error has occurred`.
+- [ ] **Средний: транзакции.** `TestRollbackTransaction` падает на Informix.
+- [ ] **Прочее.** `TestAllDataTypes`, `TestChineseChar`, `TestCodeunits32` (unicode/graphic-типы).
+
+Что делать (варианты):
+
+- [x] **Минимум:** не декларировать Informix как поддерживаемую платформу. *Сделано 2026-11-01:* `classifyPlatform` распознаёт `IDS/…` → `PlatformInformix` (для этого же починен `GetInfo`: Informix DRDA возвращает `SQL_DBMS_NAME` однобайтовой ASCII через wide-API — добавлен fallback-декод); 30 несовместимых тестов помечены `SkipOnPlatform(t, PlatformInformix)`. Сьют на Informix: 0 FAIL / 32 SKIP / 39 PASS.
+- [ ] **Максимум:** чинить совместимость — типизированная привязка массивов (учёт типа колонки при `SQLBindParameter`), замена `sysibm.sysdummy1`/`identity_val_local()` на переносимые альтернативы, поддержка типов. Объём большой, нужен отдельный план.
+
+
 
 Выполнены два прогона (требуются заголовки clidriver: `IBM_DB_HOME`, `CGO_CFLAGS`, `CGO_LDFLAGS`, `LD_LIBRARY_PATH`):
 
@@ -39,25 +66,26 @@
 
 Полные отчёты: `/tmp/opencode/lint_default.txt`, `/tmp/opencode/lint_hard.txt`; строгий конфиг — `/tmp/opencode/golangci.hard.yml` (можно положить в репо как `.golangci.yml`). Замечания на одинаковых `file:line:col` дедуплицируются, поэтому часть govet/staticcheck-точек (например, `odbcstmt.go:212`, `:256`) видна только в дефолтном прогоне. `db2dialect/` — отдельный модуль и из корня не проверяется.
 
+## Замечания golangci-lint 2.14.0
+
+Выполнены два прогона (требуются заголовки clidriver: `IBM_DB_HOME`, `CGO_CFLAGS`, `CGO_LDFLAGS`, `LD_LIBRARY_PATH`):
+
 ### Безопасность и корректность — приоритет
 
-- [ ] **Средний: конвертации целых без проверки переполнения (gosec G115, 13 шт.).** `int→int16/uint16/int32/uint32` в [`column.go`](column.go#L33): 33, 39, 48, 49, 53, 54, 74, 370; [`param.go`](param.go#L76): 76, 127, 150; [`error.go`](error.go#L71): 71, 76. Добавить проверки границ или безопасные конвертации.
-- [ ] **Средний: инсталлятор — несколько классов уязвимостей (gosec).** [`installer/setup.go`](installer/setup.go#L96): G204 — подпроцессы с потенциально заражённым входом (96, 121, 132); G703 — path traversal (22, 27, 261); G305 — file traversal при распаковке архива (74); G110 — декомпрессионная бомба (85); G107 — HTTP-запрос по переменному URL (33); G304 — включение файла по переменной (45, 79). Оценить риски: код выполняется в CI через `go run installer/setup.go`.
-- [ ] **Средний: `os.Exit` до `defer` (gocritic exitAfterDefer).** [`installer/setup.go`](installer/setup.go#L71) — отложенный `reader.Close()` не выполнится; проверить остальные `os.Exit` инсталлятора.
-- [ ] **Средний: возможное некорректное использование `unsafe.Pointer` (govet unsafeptr / G103).** [`api/zapi_unix.go`](api/zapi_unix.go#L106); `odbcstmt.go`: 212, 256 (видны в дефолтном прогоне); аудит unsafe: `api/api.go`: 111, 124; `column.go`: 40.
-- [ ] **Средний: возврат nil-ошибки с невалидным значением (nilnil).** [`column.go`](column.go#L215): 215, 221, 347 — использовать sentinel-ошибку.
+- [x] **Средний: конвертации целых без проверки переполнения (gosec G115, 13 шт.).** *Исправлено 2026-11-01:* `IsNull` сравнивает на полной ширине SQLLEN (реальный баг: усечение до int16 могло дать ложный NULL); добавлены `odbcNum` (0-based индекс → 1-based номер, panic при переполнении) и `sqlulen` (len → SQLULEN с ошибкой) для строковых/бинарных параметров; структурно ограниченные поля (календарь, фиксированные буферы) помечены `//nolint:gosec` с обоснованием. Остались только 3×G103 (аудит unsafe — by design для ODBC-буферов).
+- [x] **Средний: инсталлятор — несколько классов уязвимостей (gosec).** *Исправлено 2026-11-01:* `Unzipping` переписан в error-стиле — `os.Exit` больше не обходит `defer` (exitAfterDefer), добавлен zip-slip guard (запись только внутри целевого каталога) и капа декомпрессии 2 ГиБ/файл (G110); `exec.Command` → `exec.CommandContext` (noctx); by-design пункты (G107 URL из env, G204/G305 фиксированные tar/gunzip-команды, G304/G703 служебные пути) помечены `//nolint:gosec` с обоснованием. Устаревший инсталлятор прогоняется только в CI — риск ограничен.
+- [x] **Средний: `os.Exit` до `defer` (gocritic exitAfterDefer).** *Исправлено 2026-11-01:* `Unzipping` переписан (см. пункт про инсталлятор): ошибки возвращаются, `os.Exit` — только в обёртке после освобождения ресурсов.
+- [x] **Средний: возврат nil-ошибки с невалидным значением (nilnil).** *Закрыто 2026-11-01:* во всех 5 местах `return nil, nil` — это корректная кодировка SQL NULL для `driver.Value` (nil — валидное значение); помечено `//nolint:nilnil` с обоснованием.
+- [x] **Низкий: `exec.Command` без контекста (noctx).** *Исправлено 2026-11-01:* переведён на `exec.CommandContext`.
+- [x] **Средний: возможное некорректное использование `unsafe.Pointer` (govet unsafeptr / G103).** *Закрыто 2026-11-01:* три конвертации `uintptr→SQLPOINTER` в `odbcstmt.go` — легальный паттерн ODBC (integer-атрибуты передаются через pointer-аргумент), помечены `//nolint:govet` с обоснованием; `api/zapi_unix.go` — сгенерированный cgo-мост, аналогично помечен (nolint потеряется при регенерации `mksyscall_unix.pl` — учесть). G103 (аудит unsafe) остаётся осознанным — код сплошь работает с ODBC-буферами.
 - [x] **Средний: type assertion на error.** `sqlOut.go`: 452 — не срабатывает на обёрнутых ошибках. *Исправлено: заменено на `errors.As`.*
-- [ ] **Низкий: `exec.Command` без контекста (noctx).** [`installer/setup.go`](installer/setup.go#L203).
-- [ ] **Низкий: права 0666 на файл трассировки (gosec G302).** [`log2/logger1.go`](log2/logger1.go#L45) — ожидается ≤0600. Связано с открытым пунктом про `log.Fatal` в `Trace1`.
+- [x] **Низкий: права 0666 на файл трассировки (gosec G302).** *Исправлено 2026-11-01:* права снижены до 0600; заодно сбой открытия файла больше не фатален (см. «Открытые проблемы»).
 
 ### Потерянные ошибки и dead code
 
-- [ ] **Средний: игнорируемые ошибки (errcheck, 30 шт.).** По группам:
-  - `pooling.go` — `Close()` ×7 (199, 217, 246, 249, 285, 305, 313) и `strconv.Atoi` ×2 (45, 111 — усугубляет открытый пункт про неверные параметры пула);
-  - `installer/setup.go` ×12 — 37, 49, 66, 73, 76, 84 (`Close`/`MkdirAll`), 111–113 (`Output`), 245, 246, 251 (`filepath.Abs`);
-  - `log2/logger1.go` — 49 (`Close`), 54 (`Sync`); `conn.go` — 81, 161; `column.go` — 438; `result.go` — 30, 36 (`Close`); `stmt.go` — 103, 166 (`closeByStmt`).
+- [x] **Средний: игнорируемые ошибки (errcheck, 30 шт.).** *Исправлено 2026-11-01:* все вызовы в пакете драйвера и инсталляторе либо проверяют ошибку, либо явно отбрасывают (`_ =`); дефолтный errcheck-набор = 0.
 - [x] **Средний: мёртвые записи (ineffassign).** `odbcstmt.go`: 171, 179, 187 — `ArrayCheck = 0` никогда не читается. *Исправлено: все 5 присваиваний удалены.*
-- [ ] **Средний: вызов устаревшего API (SA1019).** [`result.go`](result.go#L32) — `driver.Stmt.Query` deprecated; реализовать `StmtQueryContext` (пересекается с пунктом про отмену контекста).
+- [x] **Средний: вызов устаревшего API (SA1019).** *Исправлено 2026-11-01:* `LastInsertId` зовёт внутренний `query1(context.Background(), nil)` вместо deprecated `driver.Stmt.Query`.
 
 ### Сложность — кандидат на рефакторинг
 

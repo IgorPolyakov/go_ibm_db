@@ -7,6 +7,7 @@ import (
 )
 
 func TestAllDataTypes(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	// BOOLEAN is not a valid column data type on Db2 for z/OS.
 	SkipOnPlatform(t, PlatformZOS)
 	if AllDataTypes() != nil {

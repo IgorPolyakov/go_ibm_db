@@ -5,6 +5,7 @@ import (
 )
 
 func TestRollbackTransaction(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	if RollbackTransaction() != nil {
 		t.Error("Error in Rollback Transaction")
 	}

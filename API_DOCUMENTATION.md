@@ -599,4 +599,3 @@ func main() {
 	fmt.Println("DBMS name:", name)
 }
 ```
-

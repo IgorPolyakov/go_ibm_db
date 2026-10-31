@@ -7,7 +7,7 @@ import (
 )
 
 func TestClobArray(t *testing.T) {
-	SkipOnPlatform(t, PlatformZOS)
+	SkipOnPlatform(t, PlatformZOS, PlatformInformix)
 	if ClobArray_1() != nil {
 		t.Error("Error at ClobArray")
 	}

@@ -7,6 +7,7 @@ import (
 )
 
 func TestSmallintArray(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	if SmallintArray() != nil {
 		t.Error("Error at SmallintArray")
 	}

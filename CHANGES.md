@@ -13,7 +13,6 @@
 
 # 2025-10-16, Version 0.5.4
 
-
 - Added LastInsertId methods and Testcase. (#272) (Vikas Mathur)
 
 # 2025-09-07, Version 0.5.3

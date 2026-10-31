@@ -7,6 +7,7 @@ import (
 )
 
 func TestChineseChar(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	if ChineseChar() != nil {
 		t.Error("Error at ChineseChar")
 	}

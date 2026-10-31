@@ -8,6 +8,7 @@ import (
 )
 
 func TestTimeStampArray(t *testing.T) {
+	SkipOnPlatform(t, PlatformInformix) // Informix lacks the DB2 types/syntax this test needs
 	if TimeStampArray() != nil {
 		t.Error("Error at StringArray")
 	}

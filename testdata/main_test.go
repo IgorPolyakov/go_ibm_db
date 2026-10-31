@@ -22,6 +22,7 @@ func TestClassifyPlatform(t *testing.T) {
 		{"z/OS DB2", "DB2", PlatformZOS},
 		{"z/OS DSN", "DSN11015", PlatformZOS},
 		{"IBM i", "AS/400", PlatformAS400},
+		{"Informix IDS", "IDS/UNIX64", PlatformInformix},
 		{"unknown defaults to LUW", "OTHER", PlatformLUW},
 	}
 
