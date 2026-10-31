@@ -6,6 +6,7 @@ package go_ibm_db
 
 import (
 	"fmt"
+
 	"github.com/ibmdb/go_ibm_db/api"
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
@@ -45,7 +46,7 @@ func releaseHandle(handle interface{}) error {
 	if IsError(ret) {
 		return NewError("SQLFreeHandle", handle)
 	}
-	drv.Stats.updateHandleCount(ht, -1)
+	drv.updateHandleCount(ht, -1)
 
 	trc.Trace1("handle.go: releaseHandle() - EXIT")
 	return nil

@@ -14,12 +14,12 @@ import (
 var globalvar string = ""
 
 func GetPath(filename string) {
-	//fmt.Println("filename = ", filename)
+	// fmt.Println("filename = ", filename)
 	//fmt.Println("Args Length = ", argsLen)
 
 	if filename != "" && filename != "stdout" {
 		if _, err := os.Stat(filename); err == nil {
-			//fmt.Println("File exits\n")
+			// fmt.Println("File exits\n")
 			e := os.Remove(filename)
 			if e != nil {
 				fmt.Println("Problem in removing existing log file")
@@ -41,8 +41,8 @@ func Trace1(msg1 string) {
 		return
 	}
 
-	//file, errlog := os.OpenFile("C:\\temp\\testlogs2.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	file, errlog := os.OpenFile(globalvar, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	// file, errlog := os.OpenFile("C:\\temp\\testlogs2.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	file, errlog := os.OpenFile(globalvar, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o666)
 	if errlog != nil {
 		log.Fatal(errlog)
 	}

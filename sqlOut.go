@@ -15,7 +15,7 @@ import (
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
 
-// Out struct is used to store the value of a OUT parameter in Stored Procedure
+// Out struct is used to store the value of a OUT parameter in Stored Procedure.
 type Out struct {
 	sqlOut          *sql.Out
 	idx             int
@@ -41,10 +41,10 @@ func newOut(hstmt api.SQLHSTMT, sqlOut *sql.Out, idx int) (*Out, error) {
 	var data []byte
 	if sqlOut.In {
 		inputOutputType = api.SQL_PARAM_INPUT_OUTPUT
-		//convert sql.Out.Dest to a driver.Value so the number of possible type is limited.
+		// convert sql.Out.Dest to a driver.Value so the number of possible type is limited.
 		dv, err := driver.DefaultParameterConverter.ConvertValue(sqlOut.Dest)
 		if err != nil {
-			return nil, fmt.Errorf("%v : failed to convert Dest in sql.Out to driver.Value", err)
+			return nil, fmt.Errorf("%w : failed to convert Dest in sql.Out to driver.Value", err)
 		}
 		// use case with one type only. Otherwise d will turn into some other type and extract
 		// will give incorrect result
@@ -158,7 +158,7 @@ func newOut(hstmt api.SQLHSTMT, sqlOut *sql.Out, idx int) (*Out, error) {
 	}, nil
 }
 
-// Value function converts the database value to driver.value
+// Value function converts the database value to driver.value.
 func (o *Out) Value() (driver.Value, error) {
 	trc.Trace1("sqlOut.go: Value() - ENTRY")
 
@@ -172,11 +172,11 @@ func (o *Out) Value() (driver.Value, error) {
 		return buf[0] != 0, nil
 	case api.SQL_C_LONG:
 		// driver.Value only allows int64 (not int32), per database/sql/driver contract
-		return int64(*((*int32)(p))), nil
+		return int64(*(*int32)(p)), nil
 	case api.SQL_C_SBIGINT:
-		return *((*int64)(p)), nil
+		return *(*int64)(p), nil
 	case api.SQL_C_DOUBLE:
-		return *((*float64)(p)), nil
+		return *(*float64)(p), nil
 	case api.SQL_C_CHAR:
 		buf = bytes.Trim(buf, "\x00")
 		return buf, nil
@@ -408,7 +408,7 @@ func ConvertAssign(dest, src interface{}) error {
 		i64, err := strconv.ParseInt(s, 10, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
-			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
+			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %w", src, s, dv.Kind(), err)
 		}
 		dv.SetInt(i64)
 		return nil
@@ -417,7 +417,7 @@ func ConvertAssign(dest, src interface{}) error {
 		u64, err := strconv.ParseUint(s, 10, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
-			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
+			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %w", src, s, dv.Kind(), err)
 		}
 		dv.SetUint(u64)
 		return nil
@@ -426,7 +426,7 @@ func ConvertAssign(dest, src interface{}) error {
 		f64, err := strconv.ParseFloat(s, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
-			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
+			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %w", src, s, dv.Kind(), err)
 		}
 		dv.SetFloat(f64)
 		return nil
@@ -449,7 +449,8 @@ func strconvErr(err error) error {
 	trc.Trace1("sqlOut.go: strconvErr()")
 	trc.Trace1(fmt.Sprintf("Error:%s", err))
 
-	if ne, ok := err.(*strconv.NumError); ok {
+	ne := &strconv.NumError{}
+	if errors.As(err, &ne) {
 		return ne.Err
 	}
 	return err

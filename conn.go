@@ -6,7 +6,6 @@ package go_ibm_db
 
 import (
 	"database/sql/driver"
-	"fmt"
 	"runtime"
 	"strconv"
 	"strings"
@@ -55,7 +54,7 @@ func parseDSN(dsn string) (string, int) {
 
 func (d *Driver) Open(dsn string) (driver.Conn, error) {
 	trc.Trace1("conn.go: Open() - ENTRY")
-	trc.Trace1(fmt.Sprintf("dsn = %s", dsn))
+	trc.Trace1("dsn = " + dsn)
 
 	cleanDSN, fetchSize := parseDSN(dsn)
 
@@ -65,7 +64,7 @@ func (d *Driver) Open(dsn string) (driver.Conn, error) {
 		return nil, NewError("SQLAllocHandle", d.h)
 	}
 	h := api.SQLHDBC(out)
-	drv.Stats.updateHandleCount(api.SQL_HANDLE_DBC, 1)
+	drv.updateHandleCount(api.SQL_HANDLE_DBC, 1)
 
 	b := api.StringToUTF16(cleanDSN)
 	if runtime.GOOS == "zos" {
@@ -130,10 +129,10 @@ func (c *Conn) Close() error {
 	return releaseHandle(h)
 }
 
-// Query method executes the statement with out prepare if no args provided, and a driver.ErrSkip otherwise (handled by sql.go to execute usual preparedStmt)
+// Query method executes the statement with out prepare if no args provided, and a driver.ErrSkip otherwise (handled by sql.go to execute usual preparedStmt).
 func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	trc.Trace1("conn.go: Query() - ENTRY")
-	trc.Trace1(fmt.Sprintf("query = %s", query))
+	trc.Trace1("query = " + query)
 
 	if len(args) > 0 {
 		// Not implemented for queries with parameters
@@ -146,7 +145,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		return nil, NewError("SQLAllocHandle", c.h)
 	}
 	h := api.SQLHSTMT(out)
-	drv.Stats.updateHandleCount(api.SQL_HANDLE_STMT, 1)
+	drv.updateHandleCount(api.SQL_HANDLE_STMT, 1)
 	b := api.StringToUTF16(query)
 	if runtime.GOOS == "zos" {
 		// On z/OS, StringToUTF16 does not append null terminator,

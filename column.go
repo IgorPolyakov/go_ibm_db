@@ -164,7 +164,7 @@ func (c *BaseColumn) Name() string {
 func (c *BaseColumn) TypeScan() reflect.Type {
 	trc.Trace1("column.go: TypeScan()")
 
-	//TODO(Akhil):This will return the golang type of a variable
+	// TODO(Akhil):This will return the golang type of a variable
 	switch c.CType {
 	case api.SQL_C_BIT:
 		return reflect.TypeOf(false)
@@ -200,11 +200,11 @@ func (c *BaseColumn) Value(buf []byte) (driver.Value, error) {
 		return buf[0] != 0, nil
 	case api.SQL_C_LONG:
 		// driver.Value only allows int64 (not int32), per database/sql/driver contract
-		return int64(*((*int32)(p))), nil
+		return int64(*(*int32)(p)), nil
 	case api.SQL_C_SBIGINT:
-		return *((*int64)(p)), nil
+		return *(*int64)(p), nil
 	case api.SQL_C_DOUBLE:
-		return *((*float64)(p)), nil
+		return *(*float64)(p), nil
 	case api.SQL_C_CHAR:
 		if c.SType == api.SQL_DECIMAL {
 			return bytes.Replace(buf, []byte(","), []byte("."), 1), nil
@@ -303,10 +303,10 @@ func NewVariableWidthColumn(b *BaseColumn, ctype api.SQLSMALLINT, colWidth api.S
 		l *= 2 // wchars take 2 bytes each
 	case api.SQL_C_CHAR:
 		if b.SType == api.SQL_DECIMAL {
-			l = l + 4 // adding 4 as decimal has '.' which takes 1 byte
+			l += 4 // adding 4 as decimal has '.' which takes 1 byte
 		} else {
 			l++    // room for null-termination character
-			l *= 2 //chars take 2 bytes each
+			l *= 2 // chars take 2 bytes each
 		}
 	case api.SQL_C_BINARY:
 		// nothing to do
@@ -435,7 +435,8 @@ loop:
 			total = append(total, b[:l]...)
 			break loop
 		case api.SQL_SUCCESS_WITH_INFO:
-			err := NewError("SQLGetData", h).(*Error)
+			var err *Error
+			_ = errors.As(NewError("SQLGetData", h), &err)
 			if len(err.Diag) > 0 && err.Diag[0].State != "01004" {
 				return nil, err
 			}

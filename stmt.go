@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -26,14 +25,14 @@ type Stmt struct {
 
 func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 	trc.Trace1("stmt.go: Prepare()")
-	trc.Trace1(fmt.Sprintf("query=%s", query))
+	trc.Trace1("query=" + query)
 
 	return c.PrepareContext(context.Background(), query)
 }
 
 func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	trc.Trace1("stmt.go: PrepareContext() - ENTRY")
-	trc.Trace1(fmt.Sprintf("query=%s", query))
+	trc.Trace1("query=" + query)
 
 	os, err := c.PrepareODBCStmt(query)
 	if err != nil {
@@ -58,7 +57,7 @@ func (s *Stmt) NumInput() int {
 	return len(s.os.Parameters)
 }
 
-// Close closes the opened statement
+// Close closes the opened statement.
 func (s *Stmt) Close() error {
 	trc.Trace1("stmt.go: Close() - ENTRY")
 
@@ -72,14 +71,14 @@ func (s *Stmt) Close() error {
 	return ret
 }
 
-// Exec executes the the sql but does not return the rows
+// Exec executes the sql but does not return the rows.
 func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 	trc.Trace1("stmt.go: Exec()")
 
 	return s.exec(context.Background(), args)
 }
 
-// ExecContext implements driver.StmtExecContext interface
+// ExecContext implements driver.StmtExecContext interface.
 func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	trc.Trace1("stmt.go: ExecContext()")
 
@@ -90,6 +89,7 @@ func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (drive
 
 	return s.exec(ctx, dargs)
 }
+
 func (s *Stmt) exec(ctx context.Context, args []driver.Value) (driver.Result, error) {
 	trc.Trace1("stmt.go: exec()- ENTRY")
 
@@ -135,14 +135,14 @@ func (s *Stmt) exec(ctx context.Context, args []driver.Value) (driver.Result, er
 	return &Result{s.c, sumRowCount}, nil
 }
 
-// Query function executes the sql and return rows if rows are present
+// Query function executes the sql and return rows if rows are present.
 func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 	trc.Trace1("stmt.go: Query()")
 
 	return s.query1(context.Background(), args)
 }
 
-// QueryContext implements driver.StmtQueryContext interface
+// QueryContext implements driver.StmtQueryContext interface.
 func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	trc.Trace1("stmt.go: QueryContext()")
 
@@ -190,7 +190,7 @@ func (s *Stmt) query1(ctx context.Context, args []driver.Value) (driver.Rows, er
 	return newRows(s.os), nil
 }
 
-// CheckNamedValue implementes driver.NamedValueChecker.
+// CheckNamedValue implements driver.NamedValueChecker.
 func (s *Stmt) CheckNamedValue(nv *driver.NamedValue) (err error) {
 	trc.Trace1("stmt.go: CheckNamedValue() - ENTRY")
 
@@ -199,28 +199,28 @@ func (s *Stmt) CheckNamedValue(nv *driver.NamedValue) (err error) {
 		err = nil
 	case []int:
 		temp := make([]int64, len(d))
-		for i := 0; i < len(d); i++ {
+		for i := range len(d) {
 			temp[i] = int64(d[i])
 		}
 		nv.Value = temp
 		err = nil
 	case []int8:
 		temp := make([]int64, len(d))
-		for i := 0; i < len(d); i++ {
+		for i := range len(d) {
 			temp[i] = int64(d[i])
 		}
 		nv.Value = temp
 		err = nil
 	case []int16:
 		temp := make([]int64, len(d))
-		for i := 0; i < len(d); i++ {
+		for i := range len(d) {
 			temp[i] = int64(d[i])
 		}
 		nv.Value = temp
 		err = nil
 	case []int32:
 		temp := make([]int64, len(d))
-		for i := 0; i < len(d); i++ {
+		for i := range len(d) {
 			temp[i] = int64(d[i])
 		}
 		nv.Value = temp
@@ -235,7 +235,7 @@ func (s *Stmt) CheckNamedValue(nv *driver.NamedValue) (err error) {
 		err = nil
 	case []float32:
 		temp := make([]float64, len(d))
-		for i := 0; i < len(d); i++ {
+		for i := range len(d) {
 			temp[i] = float64(d[i])
 		}
 		nv.Value = temp

@@ -32,26 +32,26 @@ func downloadFile(url string, filename string) error {
 	// Create HTTP GET request
 	resp, err := http.Get(url)
 	if err != nil {
-		return fmt.Errorf("Failed to fetch %s: %w", url, err)
+		return fmt.Errorf("failed to fetch %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	// Check for non-200 status
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Failed to download %s: HTTP %d", url, resp.StatusCode)
+		return fmt.Errorf("failed to download %s: HTTP %d", url, resp.StatusCode)
 	}
 
 	// Create destination file
 	out, err := os.Create("../../" + filename)
 	if err != nil {
-		return fmt.Errorf("Failed to create file %s: %w", filename, err)
+		return fmt.Errorf("failed to create file %s: %w", filename, err)
 	}
 	defer out.Close()
 
 	// Copy data
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
-		return fmt.Errorf("Failed to save file %s: %w", filename, err)
+		return fmt.Errorf("failed to save file %s: %w", filename, err)
 	}
 
 	return nil
@@ -64,7 +64,7 @@ func Unzipping(sourcefile string, targetDirectory string) {
 		os.Exit(1)
 	}
 	defer reader.Close()
-	for _, f := range reader.Reader.File {
+	for _, f := range reader.File {
 		zipped, err := f.Open()
 		if err != nil {
 			fmt.Println(err)
@@ -156,7 +156,7 @@ func checkInstalledDriver(validateout string) bool {
 
 		if strings.Contains(line, "Install") {
 			fields := strings.Split(line, " ")
-			//fmt.Println(fields[7])
+			// fmt.Println(fields[7])
 			input1 := fields[7][0:len(fields[7])]
 			fmt.Println("Found installed Db2 Client as", input1)
 			if checkIncludeDir(input1) {
@@ -170,9 +170,9 @@ func checkInstalledDriver(validateout string) bool {
 
 func checkIncludeDir(clidriver string) bool {
 	if dirExists(clidriver + "/include") {
-		//fmt.Println("clidriver/include folder exists in the path", clidriver)
+		// fmt.Println("clidriver/include folder exists in the path", clidriver)
 		if dirExists(clidriver + "/lib") {
-			//fmt.Println("clidriver/lib folder exists in the path", clidriver)
+			// fmt.Println("clidriver/lib folder exists in the path", clidriver)
 			if fileExists(clidriver + "/include/sqlcli.h") {
 				return true
 			} else {
@@ -206,13 +206,14 @@ func main() {
 		ibmDBHome, found := os.LookupEnv("IBM_DB_HOME")
 		if !found || ibmDBHome == "" || !dirExists(ibmDBHome) {
 			// IBM_DB_HOME is not set
-			if runtime.GOOS == "windows" {
+			switch runtime.GOOS {
+			case "windows":
 				fmt.Println("Please set IBM_DB_HOME and add %IBM_DB_HOME%/bin to PATH and %IBM_DB_HOME%/lib to LIB environment variables after clidriver installation")
-			} else if runtime.GOOS == "aix" {
+			case "aix":
 				fmt.Println("Please set IBM_DB_HOME, CGO_CFLAGS, CGO_LDFLAGS and LIBPATH environment variables after clidriver installation")
-			} else if runtime.GOOS == "darwin" {
+			case "darwin":
 				fmt.Println("Please set IBM_DB_HOME, CGO_CFLAGS, CGO_LDFLAGS and DYLD_LIBRARY_PATH environment variables after clidriver installation")
-			} else {
+			default:
 				fmt.Println("Please set IBM_DB_HOME, CGO_CFLAGS, CGO_LDFLAGS and LD_LIBRARY_PATH environment variables after clidriver installation")
 			}
 		} else {
@@ -268,7 +269,8 @@ func main() {
 		}
 	}
 
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		unpackageType = 1
 		const wordsize = 32 << (^uint(0) >> 32 & 1)
 		if wordsize == 64 {
@@ -276,28 +278,29 @@ func main() {
 		} else {
 			cliFileName = "nt32_odbc_cli.zip"
 		}
-	} else if runtime.GOOS == "linux" {
+	case "linux":
 		unpackageType = 2
-		if runtime.GOARCH == "ppc64le" {
+		switch runtime.GOARCH {
+		case "ppc64le":
 			const wordsize = 32 << (^uint(0) >> 32 & 1)
 			if wordsize == 64 {
 				cliFileName = "ppc64le_odbc_cli.tar.gz"
 			}
-		} else if runtime.GOARCH == "ppc" {
+		case "ppc":
 			const wordsize = 32 << (^uint(0) >> 32 & 1)
 			if wordsize == 64 {
 				cliFileName = "ppc64_odbc_cli.tar.gz"
 			} else {
 				cliFileName = "ppc32_odbc_cli.tar.gz"
 			}
-		} else if runtime.GOARCH == "amd64" {
+		case "amd64":
 			const wordsize = 32 << (^uint(0) >> 32 & 1)
 			if wordsize == 64 {
 				cliFileName = "linuxx64_odbc_cli.tar.gz"
 			} else {
 				cliFileName = "linuxia32_odbc_cli.tar.gz"
 			}
-		} else if runtime.GOARCH == "s390x" {
+		case "s390x":
 			const wordsize = 32 << (^uint(0) >> 32 & 1)
 			if wordsize == 64 {
 				cliFileName = "s390x64_odbc_cli.tar.gz"
@@ -305,7 +308,7 @@ func main() {
 				cliFileName = "s390_odbc_cli.tar.gz"
 			}
 		}
-	} else if runtime.GOOS == "aix" {
+	case "aix":
 		unpackageType = 3
 		const wordsize = 32 << (^uint(0) >> 32 & 1)
 		if wordsize == 64 {
@@ -313,16 +316,17 @@ func main() {
 		} else {
 			cliFileName = "aix32_odbc_cli.tar.gz"
 		}
-	} else if runtime.GOOS == "sunos" {
+	case "sunos":
 		unpackageType = 2
-		if runtime.GOARCH == "i86pc" {
+		switch runtime.GOARCH {
+		case "i86pc":
 			const wordsize = 32 << (^uint(0) >> 32 & 1)
 			if wordsize == 64 {
 				cliFileName = "sunamd64_odbc_cli.tar.gz"
 			} else {
 				cliFileName = "sunamd32_odbc_cli.tar.gz"
 			}
-		} else if runtime.GOARCH == "SUNW" {
+		case "SUNW":
 			const wordsize = 32 << (^uint(0) >> 32 & 1)
 			if wordsize == 64 {
 				cliFileName = "sun64_odbc_cli.tar.gz"
@@ -330,7 +334,7 @@ func main() {
 				cliFileName = "sun32_odbc_cli.tar.gz"
 			}
 		}
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		unpackageType = 2
 		const wordsize = 32 << (^uint(0) >> 32 & 1)
 		if wordsize == 64 {
@@ -340,7 +344,7 @@ func main() {
 				cliFileName = "macos64_odbc_cli.tar.gz"
 			}
 		}
-	} else {
+	default:
 		fmt.Println("Error: Unsupported platform!")
 		os.Exit(3)
 	}
@@ -368,11 +372,12 @@ func main() {
 	}
 	fmt.Println("Download completed.")
 
-	if unpackageType == 1 {
+	switch unpackageType {
+	case 1:
 		Unzipping(cliFileName, target)
-	} else if unpackageType == 3 {
+	case 3:
 		aix_untar(cliFileName, target)
-	} else {
+	default:
 		linux_untar(cliFileName, target, ibmdbDir)
 	}
 }
@@ -382,11 +387,12 @@ func getDownloadUrl(cliFileName string) string {
 	if !downloadUrlFound || downloadUrl == "" {
 		clidriverVersion, ok := os.LookupEnv("CLIDRIVER_DOWNLOAD_VERSION")
 		if ok && clidriverVersion != "" {
-			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && strings.HasPrefix(strings.ToLower(clidriverVersion), "v11") {
+			switch {
+			case runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && strings.HasPrefix(strings.ToLower(clidriverVersion), "v11"):
 				downloadUrl = primaryURL + cliFileName
-			} else if runtime.GOOS == "darwin" && runtime.GOARCH != "arm64" && strings.HasPrefix(strings.ToLower(clidriverVersion), "v12") {
+			case runtime.GOOS == "darwin" && runtime.GOARCH != "arm64" && strings.HasPrefix(strings.ToLower(clidriverVersion), "v12"):
 				downloadUrl = primaryURL + cliFileName
-			} else {
+			default:
 				downloadUrl = primaryURL + clidriverVersion + "/" + cliFileName
 			}
 		} else {

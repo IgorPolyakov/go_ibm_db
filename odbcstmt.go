@@ -36,7 +36,7 @@ type ODBCStmt struct {
 
 func (c *Conn) PrepareODBCStmt(query string) (*ODBCStmt, error) {
 	trc.Trace1("odbcstmt.go: PrepareODBCStmt() - ENTRY")
-	trc.Trace1(fmt.Sprintf("query=%s", query))
+	trc.Trace1("query=" + query)
 
 	var out api.SQLHANDLE
 	ret := api.SQLAllocHandle(api.SQL_HANDLE_STMT, api.SQLHANDLE(c.h), &out)
@@ -44,7 +44,7 @@ func (c *Conn) PrepareODBCStmt(query string) (*ODBCStmt, error) {
 		return nil, NewError("SQLAllocHandle", c.h)
 	}
 	h := api.SQLHSTMT(out)
-	drv.Stats.updateHandleCount(api.SQL_HANDLE_STMT, 1)
+	drv.updateHandleCount(api.SQL_HANDLE_STMT, 1)
 	b := api.StringToUTF16(query)
 	if runtime.GOOS == "zos" {
 		// On z/OS, StringToUTF16 does not append null terminator,
@@ -168,40 +168,35 @@ func (s *ODBCStmt) Exec(args []driver.Value) error {
 					ArrayLength = len(d)
 					ArrayCheck = 1
 				} else {
-					ArrayCheck = 0
-					return fmt.Errorf("parameter's array value length should be same")
+					return errors.New("parameter's array value length should be same")
 				}
 			case []string:
 				if len(d) == ArrayLength {
 					ArrayLength = len(d)
 					ArrayCheck = 1
 				} else {
-					ArrayCheck = 0
-					return fmt.Errorf("parameter's array value length should be same")
+					return errors.New("parameter's array value length should be same")
 				}
 			case []bool:
 				if len(d) == ArrayLength {
 					ArrayLength = len(d)
 					ArrayCheck = 1
 				} else {
-					ArrayCheck = 0
-					return fmt.Errorf("parameter's array value length should be same")
+					return errors.New("parameter's array value length should be same")
 				}
 			case []float64:
 				if len(d) == ArrayLength {
 					ArrayLength = len(d)
 					ArrayCheck = 1
 				} else {
-					ArrayCheck = 0
-					return fmt.Errorf("parameter's array value length should be same")
+					return errors.New("parameter's array value length should be same")
 				}
 			case []time.Time:
 				if len(d) == ArrayLength {
 					ArrayLength = len(d)
 					ArrayCheck = 1
 				} else {
-					ArrayCheck = 0
-					return fmt.Errorf("parameter's array value length should be same")
+					return errors.New("parameter's array value length should be same")
 				}
 			}
 		}
@@ -212,7 +207,7 @@ func (s *ODBCStmt) Exec(args []driver.Value) error {
 		paramSetSize = ArrayLength
 	}
 	ret := api.SQLSetStmtAttr(s.h, api.SQL_ATTR_PARAMSET_SIZE,
-		(api.SQLPOINTER)(uintptr(paramSetSize)), api.SQL_IS_INTEGER)
+		api.SQLPOINTER(uintptr(paramSetSize)), api.SQL_IS_INTEGER)
 	if IsError(ret) {
 		return NewError("SQLSetStmtAttr", s.h)
 	}
@@ -255,18 +250,18 @@ func (s *ODBCStmt) BindColumns() error {
 	// Set up block cursor if fetchSize > 1
 	if s.fetchSize > 1 {
 		ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROW_ARRAY_SIZE,
-			(api.SQLPOINTER)(uintptr(s.fetchSize)), api.SQL_IS_UINTEGER)
+			api.SQLPOINTER(uintptr(s.fetchSize)), api.SQL_IS_UINTEGER)
 		if IsError(ret) {
 			return NewError("SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE", s.h)
 		}
 		ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROWS_FETCHED_PTR,
-			(api.SQLPOINTER)(unsafe.Pointer(&s.rowsFetched)), 0)
+			api.SQLPOINTER(unsafe.Pointer(&s.rowsFetched)), 0)
 		if IsError(ret) {
 			return NewError("SQLSetStmtAttr SQL_ATTR_ROWS_FETCHED_PTR", s.h)
 		}
 		s.rowStatus = make([]api.SQLUSMALLINT, s.fetchSize)
 		ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROW_STATUS_PTR,
-			(api.SQLPOINTER)(unsafe.Pointer(&s.rowStatus[0])), 0)
+			api.SQLPOINTER(unsafe.Pointer(&s.rowStatus[0])), 0)
 		if IsError(ret) {
 			return NewError("SQLSetStmtAttr SQL_ATTR_ROW_STATUS_PTR", s.h)
 		}
@@ -297,7 +292,7 @@ func (s *ODBCStmt) BindColumns() error {
 				binding = false
 				s.fetchSize = 1
 				ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROW_ARRAY_SIZE,
-					(api.SQLPOINTER)(uintptr(1)), api.SQL_IS_UINTEGER)
+					api.SQLPOINTER(uintptr(1)), api.SQL_IS_UINTEGER)
 				if IsError(ret) {
 					return NewError("SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE reset", s.h)
 				}

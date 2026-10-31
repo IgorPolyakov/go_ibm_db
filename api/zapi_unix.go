@@ -254,7 +254,7 @@ func SQLColAttribute(statementHandle SQLHSTMT, ColumnNumber SQLUSMALLINT, FieldI
 	trc.Trace1("api/zapi_unix.go SQLColAttribute() - ENTRY")
 	trc.Trace1(fmt.Sprintf("ColumnNumber=%d, FieldIdentifier=%d, CharacterAttributePtr=0x%x, BufferLength=%d, StringLengthPtr=0x%x, NumericAttributePtr=0x%x", ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr))
 
-	r := C.SQLColAttribute(C.SQLHSTMT(statementHandle), C.SQLUSMALLINT(ColumnNumber), C.SQLUSMALLINT(FieldIdentifier), C.SQLPOINTER(CharacterAttributePtr), C.SQLSMALLINT(BufferLength), (*C.SQLSMALLINT)(unsafe.Pointer(StringLengthPtr)), (C.SQLPOINTER)(NumericAttributePtr))
+	r := C.SQLColAttribute(C.SQLHSTMT(statementHandle), C.SQLUSMALLINT(ColumnNumber), C.SQLUSMALLINT(FieldIdentifier), C.SQLPOINTER(CharacterAttributePtr), C.SQLSMALLINT(BufferLength), (*C.SQLSMALLINT)(unsafe.Pointer(StringLengthPtr)), C.SQLPOINTER(NumericAttributePtr))
 
 	trc.Trace1(fmt.Sprintf("r = %d", r))
 	trc.Trace1("api/zapi_unix.go SQLColAttribute() - EXIT")

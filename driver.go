@@ -24,7 +24,7 @@ type Driver struct {
 func initDriver() error {
 	trc.Trace1("driver.go:InitDriver() - ENTRY")
 
-	//Allocate environment handle
+	// Allocate environment handle
 	var out api.SQLHANDLE
 	in := api.SQLHANDLE(api.SQL_NULL_HANDLE)
 	ret := api.SQLAllocHandle(api.SQL_HANDLE_ENV, in, &out)
@@ -32,7 +32,7 @@ func initDriver() error {
 		return NewError("SQLAllocHandle", api.SQLHENV(in))
 	}
 	drv.h = api.SQLHENV(out)
-	drv.Stats.updateHandleCount(api.SQL_HANDLE_ENV, 1)
+	drv.updateHandleCount(api.SQL_HANDLE_ENV, 1)
 
 	// will use ODBC v3
 	ret = api.SQLSetEnvUIntPtrAttr(drv.h, api.SQL_ATTR_ODBC_VERSION,
@@ -73,7 +73,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	//go's to databse/sql/sql.go 43 line
+	// go's to databse/sql/sql.go 43 line
 	sql.Register("go_ibm_db", &drv)
 
 	trc.Trace1("driver.go:init() - EXIT")

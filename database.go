@@ -1,6 +1,7 @@
 package go_ibm_db
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unsafe"
@@ -18,12 +19,12 @@ func CreateDb(dbname string, connStr string, options ...string) (bool, error) {
 	if dbname == "" {
 		trc.Trace1("Error: Database name cannot be empty")
 		trc.Trace1("database.go: CreateDb() - EXIT")
-		return false, fmt.Errorf("database name cannot be empty")
+		return false, errors.New("database name cannot be empty")
 	}
 	var codeset, mode string
 	count := len(options)
 	if count > 0 {
-		for i := 0; i < count; i++ {
+		for i := range count {
 			opt := strings.Split(options[i], "=")
 			switch opt[0] {
 			case "codeset":
@@ -31,7 +32,7 @@ func CreateDb(dbname string, connStr string, options ...string) (bool, error) {
 			case "mode":
 				mode = opt[1]
 			default:
-				return false, fmt.Errorf("not a valid parameter")
+				return false, errors.New("not a valid parameter")
 			}
 		}
 	}
@@ -68,13 +69,14 @@ func createDatabase(dbname string, connStr string, codeset string, mode string) 
 		defer releaseHandle(hdbc)
 		return false, NewError("SQLDriverConnect", hdbc)
 	}
-	if codeset == "" && mode == "" {
+	switch {
+	case codeset == "" && mode == "":
 		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), nil, 0, nil, 0)
-	} else if codeset == "" {
+	case codeset == "":
 		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), nil, 0, (*api.SQLWCHAR)(unsafe.Pointer(&bufM[0])), api.SQLINTEGER(len(bufM)))
-	} else if mode == "" {
+	case mode == "":
 		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), (*api.SQLWCHAR)(unsafe.Pointer(&bufC[0])), api.SQLINTEGER(len(bufC)), nil, 0)
-	} else {
+	default:
 		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), (*api.SQLWCHAR)(unsafe.Pointer(&bufC[0])), api.SQLINTEGER(len(bufC)), (*api.SQLWCHAR)(unsafe.Pointer(&bufM[0])), api.SQLINTEGER(len(bufM)))
 	}
 	if IsError(ret) {
@@ -94,7 +96,7 @@ func DropDb(dbname string, connStr string) (bool, error) {
 	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s", dbname, connStr))
 
 	if dbname == "" {
-		return false, fmt.Errorf("database name cannot be empty")
+		return false, errors.New("database name cannot be empty")
 	}
 	connStr = connStr + ";" + "ATTACH=true"
 	trc.Trace1("database.go: DropDb() - EXIT")

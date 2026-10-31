@@ -24,7 +24,7 @@ func IsError(ret api.SQLRETURN) bool {
 		trc.Trace1("api.SQL_SUCCESS_WITH_INFO")
 	}
 	trc.Trace1("error.go: IsError() - EXIT")
-	return !(ret == api.SQL_SUCCESS || ret == api.SQL_SUCCESS_WITH_INFO)
+	return ret != api.SQL_SUCCESS && ret != api.SQL_SUCCESS_WITH_INFO
 }
 
 type DiagRecord struct {
@@ -55,7 +55,7 @@ func (e *Error) Error() string {
 
 func NewError(apiName string, handle interface{}) error {
 	trc.Trace1("error.go: NewError() - ENTRY")
-	trc.Trace1(fmt.Sprintf("apiName=%s", apiName))
+	trc.Trace1("apiName=" + apiName)
 
 	var ret api.SQLRETURN
 	h, ht := ToHandleAndType(handle)

@@ -36,7 +36,6 @@ func (p *Parameter) StoreStrLen_or_IndPtr(v api.SQLLEN) *api.SQLLEN {
 
 	p.StrLen_or_IndPtr = v
 	return &p.StrLen_or_IndPtr
-
 }
 
 func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
@@ -185,17 +184,17 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		}
 		ctype = api.SQL_C_WCHAR
 		maxlen := len(d[0]) + 1
-		for i := 0; i < len(d); i++ {
+		for i := range d {
 			if maxlen <= len(d[i]) {
 				maxlen = len(d[i]) + 1
 			}
 		}
 		b := []uint16{}
-		for i := 0; i < len(d); i++ {
+		for i := range d {
 			temp := api.StringToUTF16(d[i])
 			if len(temp) < maxlen {
 				diff := maxlen - len(temp)
-				for i := 0; i < diff; i++ {
+				for range diff {
 					temp = append(temp, 0)
 				}
 			}
@@ -223,7 +222,7 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 			return fmt.Errorf("empty array parameter")
 		}
 		b := make([]int64, len(d))
-		for i := 0; i < len(d); i++ {
+		for i := range d {
 			if d[i] {
 				b[i] = 1
 			}
@@ -256,7 +255,7 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		case api.SQL_TYPE_DATE:
 			ctype = api.SQL_C_TYPE_DATE
 			b := make([]api.SQL_DATE_STRUCT, len(d))
-			for i := 0; i < len(d); i++ {
+			for i := range d {
 				y, m, day := d[i].Date()
 				b[i] = api.SQL_DATE_STRUCT{
 					Year:  api.SQLSMALLINT(y),
@@ -271,7 +270,7 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		case api.SQL_TYPE_TIME:
 			ctype = api.SQL_C_TYPE_TIME
 			b := make([]api.SQL_TIME_STRUCT, len(d))
-			for i := 0; i < len(d); i++ {
+			for i := range d {
 				b[i] = api.SQL_TIME_STRUCT{
 					Hour:   api.SQLUSMALLINT(d[i].Hour()),
 					Minute: api.SQLUSMALLINT(d[i].Minute()),
@@ -285,7 +284,7 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		default:
 			ctype = api.SQL_C_TYPE_TIMESTAMP
 			b := make([]api.SQL_TIMESTAMP_STRUCT, len(d))
-			for i := 0; i < len(d); i++ {
+			for i := range d {
 				y, m, day := d[i].Date()
 				b[i] = api.SQL_TIMESTAMP_STRUCT{
 					Year:     api.SQLSMALLINT(y),
@@ -323,7 +322,7 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 	return nil
 }
 
-// ExtractParameters will describe all the parameters
+// ExtractParameters will describe all the parameters.
 func ExtractParameters(h api.SQLHSTMT, query ...string) ([]Parameter, error) {
 	// count parameters
 	trc.Trace1("param.go: ExtractParameters() - ENTRY")
@@ -343,7 +342,7 @@ func ExtractParameters(h api.SQLHSTMT, query ...string) ([]Parameter, error) {
 		trc.Trace1("param.go: ExtractParameters() - skipping SQLDescribeParam on z/OS")
 		return ps, nil
 	}
-	//fetch param descriptions
+	// fetch param descriptions
 	for i := range ps {
 		p := &ps[i]
 		ret = api.SQLDescribeParam(h, api.SQLUSMALLINT(i+1),
@@ -360,7 +359,7 @@ func ExtractParameters(h api.SQLHSTMT, query ...string) ([]Parameter, error) {
 	return ps, nil
 }
 
-// SqltoCtype function will convert the sql type to c type
+// SqltoCtype function will convert the sql type to c type.
 func SqltoCtype(sqltype api.SQLSMALLINT) api.SQLSMALLINT {
 	trc.Trace1("param.go: SqltoCtype()")
 

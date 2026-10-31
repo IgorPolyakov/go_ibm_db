@@ -168,7 +168,7 @@ const (
 	SQL_IS_UINTEGER = C.SQL_IS_UINTEGER
 	SQL_IS_INTEGER  = C.SQL_IS_INTEGER
 
-	//Connection pooling
+	// Connection pooling
 	SQL_ATTR_CONNECTION_POOLING = C.SQL_ATTR_CONNECTION_POOLING
 	SQL_ATTR_CP_MATCH           = C.SQL_ATTR_CP_MATCH
 	SQL_CP_OFF                  = uintptr(C.SQL_CP_OFF)

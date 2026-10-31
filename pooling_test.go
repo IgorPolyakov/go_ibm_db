@@ -49,7 +49,7 @@ func TestPoolOpenDoesNotReturnConnectionTwice(t *testing.T) {
 
 	results := make(chan *DBP, 32)
 	var wg sync.WaitGroup
-	for i := 0; i < cap(results); i++ {
+	for range cap(results) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
