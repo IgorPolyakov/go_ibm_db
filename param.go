@@ -18,6 +18,7 @@ import (
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
 
+// Parameter is a bound statement parameter: its buffers, types and length/indicator.
 type Parameter struct {
 	SQLType     api.SQLSMALLINT
 	Decimal     api.SQLSMALLINT
@@ -26,13 +27,13 @@ type Parameter struct {
 	// Following fields store data used later by SQLExecute.
 	// The fields keep data alive and away from gc.
 	Data             interface{}
-	StrLen_or_IndPtr api.SQLLEN
+	StrLen_or_IndPtr api.SQLLEN //nolint:revive // ODBC field name kept for compatibility
 	Outs             []*Out
 }
 
 // StoreStrLen_or_IndPtr stores v into StrLen_or_IndPtr field of p
 // and returns address of that field.
-func (p *Parameter) StoreStrLen_or_IndPtr(v api.SQLLEN) *api.SQLLEN {
+func (p *Parameter) StoreStrLen_or_IndPtr(v api.SQLLEN) *api.SQLLEN { //nolint:revive // ODBC name kept for compatibility
 	trc.Trace1("param.go: StoreStrLen_or_IndPtr()")
 
 	p.StrLen_or_IndPtr = v
@@ -49,8 +50,9 @@ func sqlulen(n int) (api.SQLULEN, error) {
 }
 
 func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
-	// TODO(brainman): Reuse memory for previously bound values. If memory
-	// is reused, we, probably, do not need to call SQLBindParameter either.
+	// Future optimization: reuse memory for previously bound values. If
+	// memory is reused, we, probably, do not need to call SQLBindParameter
+	// either (tracked in todo.md).
 	trc.Trace1("param.go: BindValue() - ENTRY")
 
 	var ctype, sqltype, decimal api.SQLSMALLINT

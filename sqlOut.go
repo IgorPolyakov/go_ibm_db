@@ -353,6 +353,8 @@ func ConvertAssign(dest, src interface{}) error {
 			reflect.Float32, reflect.Float64:
 			*d = asString(src)
 			return nil
+		default:
+			// other kinds take the generic conversion path below
 		}
 	case *[]byte:
 		sv = reflect.ValueOf(src)
@@ -439,6 +441,8 @@ func ConvertAssign(dest, src interface{}) error {
 			dv.SetString(string(v))
 			return nil
 		}
+	default:
+		// unsupported destination kinds take the error path below
 	}
 
 	trc.Trace1("sqlOut.go: ConvertAssign() - EXIT")
@@ -488,8 +492,9 @@ func asString(src interface{}) string {
 		return strconv.FormatFloat(rv.Float(), 'g', -1, 32)
 	case reflect.Bool:
 		return strconv.FormatBool(rv.Bool())
+	default:
+		return fmt.Sprintf("%v", src)
 	}
-	return fmt.Sprintf("%v", src)
 }
 
 func asBytes(buf []byte, rv reflect.Value) (b []byte, ok bool) {
@@ -509,6 +514,7 @@ func asBytes(buf []byte, rv reflect.Value) (b []byte, ok bool) {
 	case reflect.String:
 		s := rv.String()
 		return append(buf, s...), true
+	default:
+		return buf, false
 	}
-	return
 }

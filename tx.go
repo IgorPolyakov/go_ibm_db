@@ -11,6 +11,7 @@ import (
 	"github.com/ibmdb/go_ibm_db/api"
 )
 
+// Tx is a transaction on a connection with autocommit disabled.
 type Tx struct {
 	c *Conn
 }
@@ -24,6 +25,7 @@ func (c *Conn) setAutoCommitAttr(a uintptr) error {
 	return nil
 }
 
+// Begin starts a transaction by disabling autocommit.
 func (c *Conn) Begin() (driver.Tx, error) {
 	if c.tx != nil {
 		return nil, errors.New("already in a transaction")
@@ -61,10 +63,12 @@ func (c *Conn) endTx(commit bool) error {
 	return nil
 }
 
+// Commit ends the transaction with a commit.
 func (tx *Tx) Commit() error {
 	return tx.c.endTx(true)
 }
 
+// Rollback ends the transaction with a rollback.
 func (tx *Tx) Rollback() error {
 	return tx.c.endTx(false)
 }

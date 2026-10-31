@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package odbc implements database/sql driver to access data via odbc interface.
+// Package log2 provides a minimal file/stdout tracer used by the driver
+// for optional diagnostics (enabled via log2.GetPath).
 package log2
 
 import (
@@ -16,9 +17,11 @@ var globalvar string = ""
 // traceFileWarned prevents spamming stderr when the trace file stays broken.
 var traceFileWarned bool
 
+// GetPath selects the trace destination: a file path (the file is
+// recreated on each run), "stdout", or empty to disable tracing.
 func GetPath(filename string) {
 	// fmt.Println("filename = ", filename)
-	//fmt.Println("Args Length = ", argsLen)
+	// fmt.Println("Args Length = ", argsLen)
 
 	if filename != "" && filename != "stdout" {
 		if _, err := os.Stat(filename); err == nil {
@@ -33,6 +36,8 @@ func GetPath(filename string) {
 	globalvar = filename
 }
 
+// Trace1 writes one message to the configured trace destination; it is
+// a no-op when tracing is disabled and never terminates the program.
 func Trace1(msg1 string) {
 	if globalvar == "" {
 		return

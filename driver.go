@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package odbc implements database/sql driver to access data via odbc interface.
+// Package go_ibm_db implements the database/sql driver for IBM DB2
+// (and Informix via DRDA) on top of the DB2 CLI (ODBC) API.
 package go_ibm_db
 
 import (
@@ -16,6 +17,7 @@ import (
 
 var drv Driver
 
+// Driver is the database/sql driver registered under the name go_ibm_db.
 type Driver struct {
 	Stats
 	h api.SQLHENV // environment handle
@@ -46,10 +48,12 @@ func initDriver() error {
 	return nil
 }
 
+// Close releases the driver environment handle; database/sql never calls it, the handle lives for the process lifetime.
 func (d *Driver) Close() error {
 	trc.Trace1("driver.go: Close() - ENTRY")
 
-	// TODO(brainman): who will call (*Driver).Close (to dispose all opened handles)?
+	// Note: database/sql never calls Driver.Close; the environment handle
+	// lives for the process lifetime (see todo.md).
 	h := d.h
 	d.h = api.SQLHENV(api.SQL_NULL_HENV)
 

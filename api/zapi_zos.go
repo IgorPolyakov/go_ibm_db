@@ -26,6 +26,7 @@ func init() {
 	}
 }
 
+// SQLAllocHandle allocates an environment, connection or statement handle.
 func SQLAllocHandle(handleType SQLSMALLINT, inputHandle SQLHANDLE, outputHandle *SQLHANDLE) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLAllocHandle() - ENTRY")
 	trc.Trace1(fmt.Sprintf("handleType = %d", handleType))
@@ -37,6 +38,7 @@ func SQLAllocHandle(handleType SQLSMALLINT, inputHandle SQLHANDLE, outputHandle 
 	return SQLRETURN(r)
 }
 
+// SQLBindCol binds a result-set column to an application buffer.
 func SQLBindCol(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, targetType SQLSMALLINT, targetValuePtr []byte, bufferLength SQLLEN, vallen *SQLLEN) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLBindCol() - ENTRY")
 	trc.Trace1(fmt.Sprintf("columnNumber=%d, targetType=%d, bufferLength=%d, vallen=%d", columnNumber, targetType, bufferLength, vallen))
@@ -47,6 +49,7 @@ func SQLBindCol(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, targetType 
 	return SQLRETURN(r)
 }
 
+// SQLBindParameter binds a parameter marker to an application buffer.
 func SQLBindParameter(statementHandle SQLHSTMT, parameterNumber SQLUSMALLINT, inputOutputType SQLSMALLINT, valueType SQLSMALLINT, parameterType SQLSMALLINT, columnSize SQLULEN, decimalDigits SQLSMALLINT, parameterValue SQLPOINTER, bufferLength SQLLEN, ind *SQLLEN) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLBindParameter() - ENTRY")
 
@@ -56,6 +59,7 @@ func SQLBindParameter(statementHandle SQLHSTMT, parameterNumber SQLUSMALLINT, in
 	return SQLRETURN(r)
 }
 
+// SQLCancel cancels an in-flight statement execution or fetch; it is safe to call from another thread.
 func SQLCancel(statementHandle SQLHSTMT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLCancel() - ENTRY")
 
@@ -65,6 +69,7 @@ func SQLCancel(statementHandle SQLHSTMT) SQLRETURN {
 	return SQLRETURN(r)
 }
 
+// SQLCloseCursor closes the open cursor of a statement.
 func SQLCloseCursor(statementHandle SQLHSTMT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLCloseCursor() - ENTRY")
 
@@ -74,6 +79,7 @@ func SQLCloseCursor(statementHandle SQLHSTMT) SQLRETURN {
 	return SQLRETURN(r)
 }
 
+// SQLDescribeCol returns the description of a result-set column.
 func SQLDescribeCol(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, columnName *SQLWCHAR, bufferLength SQLSMALLINT, nameLengthPtr *SQLSMALLINT, dataTypePtr *SQLSMALLINT, columnSizePtr *SQLULEN, decimalDigitsPtr *SQLSMALLINT, nullablePtr *SQLSMALLINT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLDescribeCol() - ENTRY")
 
@@ -83,6 +89,7 @@ func SQLDescribeCol(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, columnN
 	return SQLRETURN(r)
 }
 
+// SQLDescribeParam returns the description of a parameter marker.
 func SQLDescribeParam(statementHandle SQLHSTMT, parameterNumber SQLUSMALLINT, dataTypePtr *SQLSMALLINT, parameterSizePtr *SQLULEN, decimalDigitsPtr *SQLSMALLINT, nullablePtr *SQLSMALLINT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLDescribeParam() - ENTRY")
 
@@ -92,6 +99,7 @@ func SQLDescribeParam(statementHandle SQLHSTMT, parameterNumber SQLUSMALLINT, da
 	return SQLRETURN(r)
 }
 
+// SQLDisconnect closes the connection.
 func SQLDisconnect(connectionHandle SQLHDBC) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLDisconnect() - ENTRY")
 
@@ -101,6 +109,7 @@ func SQLDisconnect(connectionHandle SQLHDBC) SQLRETURN {
 	return SQLRETURN(r)
 }
 
+// SQLDriverConnect opens a connection from a connection string.
 func SQLDriverConnect(connectionHandle SQLHDBC, windowHandle SQLHWND, inConnectionString *SQLWCHAR, stringLength1 SQLSMALLINT, outConnectionString *SQLWCHAR, bufferLength SQLSMALLINT, stringLength2Ptr *SQLSMALLINT, driverCompletion SQLUSMALLINT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLDriverConnect() - ENTRY")
 
@@ -110,6 +119,7 @@ func SQLDriverConnect(connectionHandle SQLHDBC, windowHandle SQLHWND, inConnecti
 	return SQLRETURN(r)
 }
 
+// SQLEndTran commits or rolls back a transaction.
 func SQLEndTran(handleType SQLSMALLINT, handle SQLHANDLE, completionType SQLSMALLINT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLEndTran() - ENTRY")
 
@@ -119,6 +129,7 @@ func SQLEndTran(handleType SQLSMALLINT, handle SQLHANDLE, completionType SQLSMAL
 	return SQLRETURN(r)
 }
 
+// SQLExecute executes a prepared statement.
 func SQLExecute(statementHandle SQLHSTMT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLExecute() - ENTRY")
 
@@ -128,6 +139,7 @@ func SQLExecute(statementHandle SQLHSTMT) SQLRETURN {
 	return SQLRETURN(r)
 }
 
+// SQLFetch fetches the next row (or row block) of the result set.
 func SQLFetch(statementHandle SQLHSTMT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLFetch() - ENTRY")
 
@@ -137,6 +149,7 @@ func SQLFetch(statementHandle SQLHSTMT) SQLRETURN {
 	return SQLRETURN(r)
 }
 
+// SQLFreeHandle frees an environment, connection or statement handle.
 func SQLFreeHandle(handleType SQLSMALLINT, handle SQLHANDLE) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLFreeHandle() - ENTRY")
 
@@ -146,6 +159,7 @@ func SQLFreeHandle(handleType SQLSMALLINT, handle SQLHANDLE) SQLRETURN {
 	return SQLRETURN(r)
 }
 
+// SQLGetData retrieves data for a single unbound column.
 func SQLGetData(statementHandle SQLHSTMT, colOrParamNum SQLUSMALLINT, targetType SQLSMALLINT, targetValuePtr SQLPOINTER, bufferLength SQLLEN, vallen *SQLLEN) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLGetData() - ENTRY")
 
@@ -155,6 +169,7 @@ func SQLGetData(statementHandle SQLHSTMT, colOrParamNum SQLUSMALLINT, targetType
 	return SQLRETURN(r)
 }
 
+// SQLGetDiagRec returns one diagnostic record of a handle.
 func SQLGetDiagRec(handleType SQLSMALLINT, handle SQLHANDLE, recNumber SQLSMALLINT, sqlState *SQLWCHAR, nativeErrorPtr *SQLINTEGER, messageText *SQLWCHAR, bufferLength SQLSMALLINT, textLengthPtr *SQLSMALLINT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLGetDiagRec() - ENTRY")
 
@@ -164,6 +179,7 @@ func SQLGetDiagRec(handleType SQLSMALLINT, handle SQLHANDLE, recNumber SQLSMALLI
 	return SQLRETURN(r)
 }
 
+// SQLGetInfo returns DBMS/driver information as a string or number.
 func SQLGetInfo(connectionHandle SQLHDBC, infoType SQLUSMALLINT, infoValuePtr SQLPOINTER, bufferLength SQLSMALLINT, stringLengthPtr *SQLSMALLINT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLGetInfo() - ENTRY")
 
@@ -173,6 +189,7 @@ func SQLGetInfo(connectionHandle SQLHDBC, infoType SQLUSMALLINT, infoValuePtr SQ
 	return SQLRETURN(r)
 }
 
+// SQLNumParams returns the number of parameter markers of a statement.
 func SQLNumParams(statementHandle SQLHSTMT, parameterCountPtr *SQLSMALLINT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLNumParams() - ENTRY")
 
@@ -182,6 +199,7 @@ func SQLNumParams(statementHandle SQLHSTMT, parameterCountPtr *SQLSMALLINT) SQLR
 	return SQLRETURN(r)
 }
 
+// SQLNumResultCols returns the number of result-set columns of a statement.
 func SQLNumResultCols(statementHandle SQLHSTMT, columnCountPtr *SQLSMALLINT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLNumResultCols() - ENTRY")
 
@@ -191,6 +209,7 @@ func SQLNumResultCols(statementHandle SQLHSTMT, columnCountPtr *SQLSMALLINT) SQL
 	return SQLRETURN(r)
 }
 
+// SQLPrepare prepares an SQL string for execution.
 func SQLPrepare(statementHandle SQLHSTMT, statementText *SQLWCHAR, textLength SQLINTEGER) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLPrepare() - ENTRY")
 
@@ -200,6 +219,7 @@ func SQLPrepare(statementHandle SQLHSTMT, statementText *SQLWCHAR, textLength SQ
 	return SQLRETURN(r)
 }
 
+// SQLRowCount returns the number of rows affected by the statement.
 func SQLRowCount(statementHandle SQLHSTMT, rowCountPtr *SQLLEN) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLRowCount() - ENTRY")
 
@@ -209,6 +229,7 @@ func SQLRowCount(statementHandle SQLHSTMT, rowCountPtr *SQLLEN) SQLRETURN {
 	return SQLRETURN(r)
 }
 
+// SQLSetEnvAttr sets an environment attribute.
 func SQLSetEnvAttr(environmentHandle SQLHENV, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLSetEnvAttr() - ENTRY")
 
@@ -218,6 +239,7 @@ func SQLSetEnvAttr(environmentHandle SQLHENV, attribute SQLINTEGER, valuePtr SQL
 	return SQLRETURN(r)
 }
 
+// SQLSetConnectAttr sets a connection attribute.
 func SQLSetConnectAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLSetConnectAttr() - ENTRY")
 
@@ -227,15 +249,17 @@ func SQLSetConnectAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, valuePtr 
 	return SQLRETURN(r)
 }
 
-func SQLColAttribute(statementHandle SQLHSTMT, ColumnNumber SQLUSMALLINT, FieldIdentifier SQLUSMALLINT, CharacterAttributePtr SQLPOINTER, BufferLength SQLSMALLINT, StringLengthPtr *SQLSMALLINT, NumericAttributePtr SQLPOINTER) SQLRETURN {
+// SQLColAttribute returns a column descriptor field.
+func SQLColAttribute(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, fieldIdentifier SQLUSMALLINT, characterAttributePtr SQLPOINTER, bufferLength SQLSMALLINT, stringLengthPtr *SQLSMALLINT, numericAttributePtr SQLPOINTER) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLColAttribute() - ENTRY")
 
-	r := utils.CfuncEbcdic(getFunc(&dll, "SQLColAttribute"), uintptr(statementHandle), uintptr(ColumnNumber), uintptr(FieldIdentifier), uintptr(CharacterAttributePtr), uintptr(BufferLength), uintptr(unsafe.Pointer(StringLengthPtr)), uintptr(NumericAttributePtr))
+	r := utils.CfuncEbcdic(getFunc(&dll, "SQLColAttribute"), uintptr(statementHandle), uintptr(columnNumber), uintptr(fieldIdentifier), uintptr(characterAttributePtr), uintptr(bufferLength), uintptr(unsafe.Pointer(stringLengthPtr)), uintptr(numericAttributePtr))
 
 	trc.Trace1("api/zapi_zos.go SQLColAttribute() - EXIT")
 	return SQLRETURN(r)
 }
 
+// SQLMoreResults advances to the next result set of a batch.
 func SQLMoreResults(statementHandle SQLHSTMT) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLMoreResults() - ENTRY")
 
@@ -245,6 +269,7 @@ func SQLMoreResults(statementHandle SQLHSTMT) SQLRETURN {
 	return SQLRETURN(r)
 }
 
+// SQLSetStmtAttr sets a statement attribute.
 func SQLSetStmtAttr(statementHandle SQLHSTMT, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLSetStmtAttr() - ENTRY")
 
@@ -254,6 +279,7 @@ func SQLSetStmtAttr(statementHandle SQLHSTMT, attribute SQLINTEGER, valuePtr SQL
 	return SQLRETURN(r)
 }
 
+// SQLCreateDb creates a database (DB2 CLI extension).
 func SQLCreateDb(connectionHandle SQLHDBC, dbnamePtr *SQLWCHAR, dbnameLen SQLINTEGER, codeSetPtr *SQLWCHAR, codeSetLen SQLINTEGER, modePtr *SQLWCHAR, modeLen SQLINTEGER) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLCreateDb() - ENTRY")
 
@@ -263,6 +289,7 @@ func SQLCreateDb(connectionHandle SQLHDBC, dbnamePtr *SQLWCHAR, dbnameLen SQLINT
 	return SQLRETURN(r)
 }
 
+// SQLDropDb drops a database (DB2 CLI extension).
 func SQLDropDb(connectionHandle SQLHDBC, dbnamePtr *SQLWCHAR, dbnameLen SQLINTEGER) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLDropDb() - ENTRY")
 
@@ -272,6 +299,7 @@ func SQLDropDb(connectionHandle SQLHDBC, dbnamePtr *SQLWCHAR, dbnameLen SQLINTEG
 	return SQLRETURN(r)
 }
 
+// SQLExecDirect prepares and executes a statement in one call.
 func SQLExecDirect(statementHandle SQLHSTMT, statementText *SQLWCHAR, textLength SQLINTEGER) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLExecDirect() - ENTRY")
 

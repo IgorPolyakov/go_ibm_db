@@ -17,6 +17,7 @@ import (
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
 
+// Conn is a single DB2 CLI connection implementing driver.Conn.
 type Conn struct {
 	h         api.SQLHDBC
 	tx        *Tx
@@ -67,6 +68,7 @@ func maskDSN(dsn string) string {
 	return strings.Join(parts, ";")
 }
 
+// Open connects using a DSN string (UID, PWD, HOSTNAME, DATABASE, ...).
 func (d *Driver) Open(dsn string) (driver.Conn, error) {
 	trc.Trace1("conn.go: Open() - ENTRY")
 	trc.Trace1("dsn = " + maskDSN(dsn))
@@ -109,6 +111,8 @@ func (d *Driver) Open(dsn string) (driver.Conn, error) {
 //	    name, err := dc.(*go_ibm_db.Conn).GetInfo(api.SQL_DBMS_NAME)
 //	    ...
 //	})
+//
+// GetInfo reports a string-valued piece of DBMS/driver information via SQLGetInfo.
 func (c *Conn) GetInfo(infoType uint16) (string, error) {
 	trc.Trace1("conn.go: GetInfo() - ENTRY")
 
@@ -160,6 +164,7 @@ func isPrintableASCII(s string) bool {
 	return true
 }
 
+// Close disconnects and frees the connection handle.
 func (c *Conn) Close() error {
 	trc.Trace1("conn.go: Close() - ENTRY")
 

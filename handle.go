@@ -11,6 +11,7 @@ import (
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
 
+// ToHandleAndType converts a driver handle value into its raw ODBC handle and type.
 func ToHandleAndType(handle interface{}) (h api.SQLHANDLE, ht api.SQLSMALLINT) {
 	trc.Trace1("handle.go: ToHandleAndType() - ENTRY")
 

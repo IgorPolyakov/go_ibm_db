@@ -19,6 +19,7 @@ import (
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
 
+// BufferLen holds the length/indicator value of a fetched column, distinguishing SQL NULL via IsNull.
 type BufferLen api.SQLLEN
 
 // DB2 CLI graphic types; z/OS reports these instead of SQL_WCHAR/SQL_WVARCHAR.
@@ -28,6 +29,7 @@ const (
 	sqlLongVarGraphic = -97
 )
 
+// IsNull reports whether the column value is SQL NULL.
 func (l *BufferLen) IsNull() bool {
 	trc.Trace1("column.go: IsNull()")
 
@@ -48,6 +50,7 @@ func odbcNum(idx int) api.SQLUSMALLINT {
 	return api.SQLUSMALLINT(n)
 }
 
+// GetData fetches the column value into buf with SQLGetData.
 func (l *BufferLen) GetData(h api.SQLHSTMT, idx int, ctype api.SQLSMALLINT, buf []byte) api.SQLRETURN {
 	trc.Trace1("column.go: GetData()")
 
@@ -56,6 +59,7 @@ func (l *BufferLen) GetData(h api.SQLHSTMT, idx int, ctype api.SQLSMALLINT, buf 
 		(*api.SQLLEN)(l))
 }
 
+// Bind binds buf as the column data buffer with SQLBindCol.
 func (l *BufferLen) Bind(h api.SQLHSTMT, idx int, ctype api.SQLSMALLINT, buf []byte) api.SQLRETURN {
 	trc.Trace1("column.go: Bind()- ENTRY")
 
@@ -93,6 +97,7 @@ func describeColumn(h api.SQLHSTMT, idx int, namebuf []uint16) (namelen int, sql
 	return int(l), sqltype, size, ret
 }
 
+// NewColumn describes and binds one result-set column, or a block of columns in array fetch mode.
 func NewColumn(h api.SQLHSTMT, idx int) (Column, error) {
 	trc.Trace1("column.go: NewColumn() - ENTRY")
 
@@ -172,14 +177,16 @@ type BaseColumn struct {
 	SType api.SQLSMALLINT
 }
 
+// Name returns the column name.
 func (c *BaseColumn) Name() string {
 	return c.name
 }
 
+// TypeScan returns the Go type a column value converts to.
 func (c *BaseColumn) TypeScan() reflect.Type {
 	trc.Trace1("column.go: TypeScan()")
 
-	// TODO(Akhil):This will return the golang type of a variable
+	// returns the Go type a column value converts to
 	switch c.CType {
 	case api.SQL_C_BIT:
 		return reflect.TypeOf(false)
@@ -203,6 +210,7 @@ func (c *BaseColumn) TypeScan() reflect.Type {
 	}
 }
 
+// Value converts the bound buffer contents of the current row into a driver.Value.
 func (c *BaseColumn) Value(buf []byte) (driver.Value, error) {
 	trc.Trace1("column.go: Value()")
 
@@ -288,6 +296,7 @@ type BindableColumn struct {
 	Lens      []BufferLen
 }
 
+// NewBindableColumn creates a column bound to a fixed-size buffer.
 func NewBindableColumn(b *BaseColumn, ctype api.SQLSMALLINT, bufSize int) *BindableColumn {
 	trc.Trace1("column.go: NewBindableColumn() - ENTRY")
 	trc.Trace1(fmt.Sprintf("bufSize = %d", bufSize))
@@ -304,6 +313,7 @@ func NewBindableColumn(b *BaseColumn, ctype api.SQLSMALLINT, bufSize int) *Binda
 	return c
 }
 
+// NewVariableWidthColumn creates a column bound to a variable-size buffer.
 func NewVariableWidthColumn(b *BaseColumn, ctype api.SQLSMALLINT, colWidth api.SQLULEN) Column {
 	trc.Trace1("column.go: NewVariableWidthColumn() - ENTRY")
 
@@ -334,6 +344,7 @@ func NewVariableWidthColumn(b *BaseColumn, ctype api.SQLSMALLINT, colWidth api.S
 	return c
 }
 
+// Bind binds the column buffer to the statement, switching to row-wise array binding in block fetch mode.
 func (c *BindableColumn) Bind(h api.SQLHSTMT, idx int) (bool, error) {
 	trc.Trace1("column.go: Bind() - ENTRY")
 	trc.Trace1(fmt.Sprintf("idx = %d", idx))
@@ -347,6 +358,7 @@ func (c *BindableColumn) Bind(h api.SQLHSTMT, idx int) (bool, error) {
 	return true, nil
 }
 
+// Value converts the bound buffer contents into a driver.Value.
 func (c *BindableColumn) Value(h api.SQLHSTMT, idx int) (driver.Value, error) {
 	trc.Trace1("column.go: Value() - ENTRY")
 	trc.Trace1(fmt.Sprintf("idx = %d", idx))
@@ -393,7 +405,7 @@ func (c *BindableColumn) BindArray(h api.SQLHSTMT, idx int, fetchSize int) (bool
 }
 
 // ValueAtRow extracts the value for a specific row within a bulk-fetched block.
-func (c *BindableColumn) ValueAtRow(h api.SQLHSTMT, idx int, row int) (driver.Value, error) {
+func (c *BindableColumn) ValueAtRow(_ api.SQLHSTMT, idx int, row int) (driver.Value, error) { //nolint:revive // Column interface
 	trc.Trace1("column.go: ValueAtRow() - ENTRY")
 
 	if row >= c.fetchSize {
@@ -421,18 +433,19 @@ type NonBindableColumn struct {
 	*BaseColumn
 }
 
-func (c *NonBindableColumn) Bind(h api.SQLHSTMT, idx int) (bool, error) {
+func (c *NonBindableColumn) Bind(_ api.SQLHSTMT, idx int) (bool, error) { //nolint:revive // Column interface
 	return false, nil
 }
 
-func (c *NonBindableColumn) BindArray(h api.SQLHSTMT, idx int, fetchSize int) (bool, error) {
+func (c *NonBindableColumn) BindArray(_ api.SQLHSTMT, idx int, _ int) (bool, error) { //nolint:revive // Column interface
 	return false, nil
 }
 
-func (c *NonBindableColumn) ValueAtRow(h api.SQLHSTMT, idx int, row int) (driver.Value, error) {
+func (c *NonBindableColumn) ValueAtRow(h api.SQLHSTMT, idx int, _ int) (driver.Value, error) { //nolint:revive // Column interface
 	return c.Value(h, idx)
 }
 
+// Value retrieves the column with SQLGetData and converts it into a driver.Value.
 func (c *NonBindableColumn) Value(h api.SQLHSTMT, idx int) (driver.Value, error) {
 	var l BufferLen
 	var total []byte

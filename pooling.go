@@ -12,6 +12,7 @@ import (
 )
 
 // DBP struct type contains the timeout, dbinstance pointer and connection string
+// DBP wraps a *sql.DB with its connection string, lifetime and owning pool.
 type DBP struct {
 	*sql.DB
 	con  string
@@ -20,6 +21,7 @@ type DBP struct {
 }
 
 // Pool struct contains the about the pool like size, used and available connections
+// Pool is a connection pool keyed by connection string.
 type Pool struct {
 	availablePool map[string][]*DBP
 	usedPool      map[string][]*DBP
@@ -34,7 +36,7 @@ const (
 	defaultConnMaxLifetime = 60
 )
 
-// Pconnect will return the pool instance
+// Pconnect returns a pool instance for the given option string.
 func Pconnect(poolSize string) *Pool {
 	trc.Trace1("pooling.go: Pconnect() - ENTRY")
 	trc.Trace1("poolSize=" + poolSize)
@@ -99,8 +101,8 @@ func (p *Pool) takeAvailableLocked(connStr string, lifetime time.Duration) *DBP 
 	return dbpo
 }
 
-// Open will check for the connection in the pool
-// If not opens a new connection and stores in the pool
+// Open returns a pooled connection for connStr, opening and registering a
+// new one when the pool has capacity.
 func (p *Pool) Open(connStr string, options ...string) *DBP {
 	trc.Trace1("pooling.go: Open() - ENTRY")
 	trc.Trace1("connStr=" + maskDSN(connStr))
@@ -177,6 +179,7 @@ func (p *Pool) Open(connStr string, options ...string) *DBP {
 	}
 }
 
+// Init eagerly opens numConn connections into the pool.
 func (p *Pool) Init(numConn int, connStr string) bool {
 	trc.Trace1("pooling.go: Init() - ENTRY")
 	trc.Trace1(fmt.Sprintf("numConn=%d, connStr=%s", numConn, maskDSN(connStr)))
@@ -218,7 +221,8 @@ func (p *Pool) Init(numConn int, connStr string) bool {
 	return true
 }
 
-// Close will make the connection available for the next release
+// Close returns the connection to its pool, making it available for the
+// next Open.
 func (d *DBP) Close() {
 	trc.Trace1("pooling.go: Close() - ENTRY")
 
@@ -262,7 +266,7 @@ func (d *DBP) Close() {
 	trc.Trace1("pooling.go: Close() - EXIT")
 }
 
-// Timeout for closing the connection in pool
+// Timeout closes the pooled connection once its lifetime expires.
 func (d *DBP) Timeout() {
 	trc.Trace1("pooling.go: Timeout() - ENTRY")
 
@@ -299,7 +303,7 @@ func (d *DBP) Timeout() {
 	trc.Trace1("pooling.go: Timeout() - EXIT")
 }
 
-// Release will close all the connections in the pool
+// Release closes the pool and all connections it owns.
 func (p *Pool) Release() {
 	trc.Trace1("pooling.go: Release() - ENTRY")
 
@@ -329,7 +333,7 @@ func (p *Pool) Release() {
 	trc.Trace1("pooling.go: Release() - EXIT")
 }
 
-// Set the connMaxLifetime
+// SetConnMaxLifetime sets the pooled connection lifetime in seconds.
 func (p *Pool) SetConnMaxLifetime(num int) {
 	trc.Trace1("pooling.go: SetConnMaxLifetime()")
 	trc.Trace1(fmt.Sprintf("connMaxLifetime=%d", num))
@@ -342,7 +346,7 @@ func (p *Pool) SetConnMaxLifetime(num int) {
 	p.mu.Unlock()
 }
 
-// Display will print the  values in the map
+// Display prints the pool maps and size for debugging.
 func (p *Pool) Display() {
 	fmt.Println(p.availablePool)
 	fmt.Println(p.usedPool)

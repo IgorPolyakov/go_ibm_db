@@ -17,8 +17,11 @@ import (
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
 
-// TODO(brainman): see if I could use SQLExecDirect anywhere
+// SQLExecDirect is used by Conn.Query for queries without parameters;
+// everything else goes through prepare/execute.
 
+// ODBCStmt is a prepared ODBC statement: its handle, bound parameters and
+// result-set columns, shared between Stmt and Rows.
 type ODBCStmt struct {
 	h          api.SQLHSTMT
 	Parameters []Parameter
@@ -38,6 +41,8 @@ type ODBCStmt struct {
 	currentRow  int
 }
 
+// PrepareODBCStmt allocates a statement handle and prepares the query on
+// the connection.
 func (c *Conn) PrepareODBCStmt(query string) (*ODBCStmt, error) {
 	trc.Trace1("odbcstmt.go: PrepareODBCStmt() - ENTRY")
 	trc.Trace1("query=" + query)
@@ -106,9 +111,8 @@ func (s *ODBCStmt) closeByRows() error {
 				return NewError("SQLCloseCursor", s.h)
 			}
 			return nil
-		} else {
-			return s.releaseHandle()
 		}
+		return s.releaseHandle()
 	}
 	return nil
 }
@@ -185,40 +189,35 @@ func (s *ODBCStmt) Exec(args []driver.Value) error {
 		} else {
 			switch d := a.(type) {
 			case []int64:
-				if len(d) == ArrayLength {
-					ArrayLength = len(d)
-					ArrayCheck = 1
-				} else {
+				if len(d) != ArrayLength {
 					return errors.New("parameter's array value length should be same")
 				}
+				ArrayLength = len(d)
+				ArrayCheck = 1
 			case []string:
-				if len(d) == ArrayLength {
-					ArrayLength = len(d)
-					ArrayCheck = 1
-				} else {
+				if len(d) != ArrayLength {
 					return errors.New("parameter's array value length should be same")
 				}
+				ArrayLength = len(d)
+				ArrayCheck = 1
 			case []bool:
-				if len(d) == ArrayLength {
-					ArrayLength = len(d)
-					ArrayCheck = 1
-				} else {
+				if len(d) != ArrayLength {
 					return errors.New("parameter's array value length should be same")
 				}
+				ArrayLength = len(d)
+				ArrayCheck = 1
 			case []float64:
-				if len(d) == ArrayLength {
-					ArrayLength = len(d)
-					ArrayCheck = 1
-				} else {
+				if len(d) != ArrayLength {
 					return errors.New("parameter's array value length should be same")
 				}
+				ArrayLength = len(d)
+				ArrayCheck = 1
 			case []time.Time:
-				if len(d) == ArrayLength {
-					ArrayLength = len(d)
-					ArrayCheck = 1
-				} else {
+				if len(d) != ArrayLength {
 					return errors.New("parameter's array value length should be same")
 				}
+				ArrayLength = len(d)
+				ArrayCheck = 1
 			}
 		}
 	}

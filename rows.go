@@ -16,6 +16,7 @@ import (
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
 
+// Rows iterates a result set, serving rows one by one or in blocks in array fetch mode.
 type Rows struct {
 	os           *ODBCStmt
 	ctx          context.Context
@@ -24,7 +25,7 @@ type Rows struct {
 	currentIndex int
 }
 
-func newRows(ctx context.Context, os *ODBCStmt) *Rows {
+func newRows(ctx context.Context, os *ODBCStmt) *Rows { //nolint:contextcheck // nil ctx is an intentional default for the args-free Conn.Query path
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -39,6 +40,7 @@ func newRows(ctx context.Context, os *ODBCStmt) *Rows {
 	}
 }
 
+// Columns returns the column names of the result set.
 func (r *Rows) Columns() []string {
 	trc.Trace1("rows.go: Columns()")
 
@@ -49,8 +51,9 @@ func (r *Rows) Columns() []string {
 	return names
 }
 
+// ColumnTypePrecisionScale returns the precision and scale of a column when known.
 func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
-	// TODO(Akhil):This functions returns the precision and scale of column.
+	// returns the precision and scale of the column when known
 	trc.Trace1("rows.go: ColumnTypePrecisionScale() - ENTRY")
 	trc.Trace1(fmt.Sprintf("index=%d", index))
 
@@ -91,8 +94,8 @@ func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok b
 	return precision, scale, ok
 }
 
+// ColumnTypeLength returns the length of a column when known.
 func (r *Rows) ColumnTypeLength(index int) (length int64, ok bool) {
-	// ToDo(Akhil):This functions returns the length of column.
 	trc.Trace1("rows.go: ColumnTypeLength() - ENTRY")
 
 	ret := api.SQLColAttribute(r.os.h, api.SQLUSMALLINT(index+1), api.SQL_DESC_LENGTH, api.SQLPOINTER(unsafe.Pointer(nil)), 0, (*api.SQLSMALLINT)(nil), api.SQLPOINTER(unsafe.Pointer(&length)))
@@ -104,8 +107,9 @@ func (r *Rows) ColumnTypeLength(index int) (length int64, ok bool) {
 	return length, true
 }
 
+// ColumnTypeNullable returns whether a column is nullable when known.
 func (r *Rows) ColumnTypeNullable(index int) (nullable, ok bool) {
-	// TODO(Akhil):This functions returns whether the column is nullable or not
+	// returns whether the column is nullable when known
 	trc.Trace1("rows.go: ColumnTypeNullable() - ENTRY")
 
 	var null int64
@@ -121,8 +125,9 @@ func (r *Rows) ColumnTypeNullable(index int) (nullable, ok bool) {
 	return false, true
 }
 
+// ColumnTypeScanType returns the scan type of a column.
 func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
-	// TODO(AKHIL):This function will return the scantype that can be used to scan
+	// returns the scan type used to scan the column
 	// the data to the golang variable.
 	trc.Trace1("rows.go: ColumnTypeScanType()")
 	trc.Trace1(fmt.Sprintf("index=%d", index))
@@ -131,8 +136,9 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 	return a
 }
 
+// ColumnTypeDatabaseTypeName returns the database type name (VARCHAR, DECIMAL, ...) of a column.
 func (r *Rows) ColumnTypeDatabaseTypeName(index int) string {
-	// TODO(AKHIL):This functions returns the dbtype(VARCHAR,DECIMAL etc..) of column.
+	// returns the database type name (VARCHAR, DECIMAL, ...) of the column
 	// namebuf can be of uint8 or byte
 	trc.Trace1("rows.go: ColumnTypeDatabaseTypeName() - ENTRY")
 
@@ -149,6 +155,7 @@ func (r *Rows) ColumnTypeDatabaseTypeName(index int) string {
 	return dbtype
 }
 
+// Next fetches the next row into dest.
 func (r *Rows) Next(dest []driver.Value) error {
 	trc.Trace1("rows.go: Next() - ENTRY")
 
@@ -225,12 +232,14 @@ func (r *Rows) Next(dest []driver.Value) error {
 	return nil
 }
 
+// HasNextResultSet reports whether another result set is available.
 func (r *Rows) HasNextResultSet() bool {
 	trc.Trace1("rows.go: HasVextResultSet()")
 
 	return true
 }
 
+// NextResultSet advances to the next result set of a batch.
 func (r *Rows) NextResultSet() error {
 	trc.Trace1("rows.go: NextResultSet() - ENTRY")
 
@@ -252,6 +261,7 @@ func (r *Rows) NextResultSet() error {
 	return nil
 }
 
+// Close closes the cursor and releases the statement for reuse by its Stmt.
 func (r *Rows) Close() error {
 	trc.Trace1("rows.go: Close()")
 

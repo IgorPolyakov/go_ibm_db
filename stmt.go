@@ -16,6 +16,7 @@ import (
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
 
+// Stmt is a prepared statement.
 type Stmt struct {
 	c     *Conn
 	query string
@@ -23,6 +24,7 @@ type Stmt struct {
 	mu    sync.Mutex
 }
 
+// Prepare prepares a statement.
 func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 	trc.Trace1("stmt.go: Prepare()")
 	trc.Trace1("query=" + query)
@@ -30,6 +32,7 @@ func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 	return c.PrepareContext(context.Background(), query)
 }
 
+// PrepareContext prepares a statement, honoring context cancellation after allocation.
 func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	trc.Trace1("stmt.go: PrepareContext() - ENTRY")
 	trc.Trace1("query=" + query)
@@ -43,7 +46,7 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 	default:
 	case <-ctx.Done():
 		// the statement handle was already allocated: release it,
-		// otherwise it leaks on the cancelled path
+		// otherwise it leaks on the canceled path
 		_ = os.closeByStmt()
 		return nil, ctx.Err()
 	}
@@ -51,6 +54,7 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 	return &Stmt{c: c, os: os, query: query}, nil
 }
 
+// NumInput returns the number of parameter markers, or -1 for a closed statement.
 func (s *Stmt) NumInput() int {
 	trc.Trace1("stmt.go: NumInput()")
 
@@ -222,28 +226,28 @@ func (s *Stmt) CheckNamedValue(nv *driver.NamedValue) (err error) {
 		err = nil
 	case []int:
 		temp := make([]int64, len(d))
-		for i := range len(d) {
+		for i := range d {
 			temp[i] = int64(d[i])
 		}
 		nv.Value = temp
 		err = nil
 	case []int8:
 		temp := make([]int64, len(d))
-		for i := range len(d) {
+		for i := range d {
 			temp[i] = int64(d[i])
 		}
 		nv.Value = temp
 		err = nil
 	case []int16:
 		temp := make([]int64, len(d))
-		for i := range len(d) {
+		for i := range d {
 			temp[i] = int64(d[i])
 		}
 		nv.Value = temp
 		err = nil
 	case []int32:
 		temp := make([]int64, len(d))
-		for i := range len(d) {
+		for i := range d {
 			temp[i] = int64(d[i])
 		}
 		nv.Value = temp
@@ -258,7 +262,7 @@ func (s *Stmt) CheckNamedValue(nv *driver.NamedValue) (err error) {
 		err = nil
 	case []float32:
 		temp := make([]float64, len(d))
-		for i := range len(d) {
+		for i := range d {
 			temp[i] = float64(d[i])
 		}
 		nv.Value = temp

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package api exposes the DB2 CLI (ODBC) C API to the driver: handle and
+// scalar types, constants and thin per-platform wrappers.
 package api
 
 import (
@@ -12,13 +14,17 @@ import (
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
 
+// ODBC C data types mirrored for the DB2 CLI API; each type matches
+// the corresponding C definition from sqlcli1.h.
 type (
+	// SQL_DATE_STRUCT is the ODBC C DATE_STRUCT: year/month/day.
 	SQL_DATE_STRUCT struct {
 		Year  SQLSMALLINT
 		Month SQLUSMALLINT
 		Day   SQLUSMALLINT
 	}
 
+	// SQL_TIMESTAMP_STRUCT is the ODBC C TIMESTAMP_STRUCT: date, time and fraction of a second.
 	SQL_TIMESTAMP_STRUCT struct {
 		Year     SQLSMALLINT
 		Month    SQLUSMALLINT
@@ -28,6 +34,7 @@ type (
 		Second   SQLUSMALLINT
 		Fraction SQLUINTEGER
 	}
+	// SQL_TIMESTAMP_STRUCT_EXT_TZ is the extended TIMESTAMP_STRUCT with a second fraction part and a timezone offset.
 	SQL_TIMESTAMP_STRUCT_EXT_TZ struct {
 		Year           SQLSMALLINT
 		Month          SQLUSMALLINT
@@ -40,6 +47,7 @@ type (
 		TimezoneHour   SQLSMALLINT
 		TimezoneMinute SQLSMALLINT
 	}
+	// SQL_TIME_STRUCT is the ODBC C TIME_STRUCT: hour/minute/second.
 	SQL_TIME_STRUCT struct {
 		Hour   SQLUSMALLINT
 		Minute SQLUSMALLINT
@@ -86,16 +94,14 @@ func UTF16ToString(s []uint16) string {
 
 // StringToUTF16 returns the UTF-16 encoding of the UTF-8 string s,
 // with a terminating NUL added.
-// func StringToUTF16(s string) []uint16 { return utf16.Encode([]rune(s + "\u0000")) }
 func StringToUTF16(s string) []uint16 {
 	trc.Trace1("api/api.go StringToUTF16()")
 	trc.Trace1("api/api.go StringToUTF16() - s = " + s)
 
 	if runtime.GOOS == "zos" {
 		return utf16.Encode([]rune(s))
-	} else {
-		return utf16.Encode([]rune(s + "\u0000"))
 	}
+	return utf16.Encode([]rune(s + "\u0000"))
 }
 
 // StringToUTF16Ptr returns pointer to the UTF-16 encoding of
@@ -116,6 +122,8 @@ func ExtractUTF16Str(s []uint16) []byte {
 	return out
 }
 
+// Extract copies size bytes from the ODBC buffer at ptr into a fresh
+// byte slice.
 func Extract(ptr unsafe.Pointer, size uintptr) []byte {
 	trc.Trace1("api/api.go Extract() - ENTRY")
 

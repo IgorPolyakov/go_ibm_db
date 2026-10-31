@@ -14,6 +14,8 @@
 
 - [x] **Переполнения и безопасность — раунд 4 (2026-11-01).** 1) G115: честное сравнение в `IsNull` (без усечения до int16), хелперы `odbcNum`/`sqlulen` с проверкой границ, `//nolint` для структурно ограниченных значений. 2) Инсталлятор: `Unzipping`→`unzip` в error-стиле (закрыт exitAfterDefer), zip-slip guard, капа декомпрессии 2 ГиБ (G110), `exec.CommandContext` (noctx), by-design G107/G204/G304/G703 задокументированы. 3) nilnil: NULL-семантика `driver.Value` задокументирована. gosec+nilnil+noctx в строгом прогоне: 32 → 3 (только by-design G103-аудит unsafe). Проверки: build/gofmt/unit ✅, default lint 0, сьют Informix 0 FAIL / 32 SKIP / 39 PASS.
 
+- [x] **Документация, exhaustive, godox, revive — раунд 5 (2026-11-01).** Полная документация exported-символов (revive: 50 → 0), явные `default` в reflect.Kind-switch, все TODO-маркеры переписаны/закрыты, godot/gocritic-хвост добит, `SQLColAttribute`-параметры в camelCase, `intrange`-хвост в stmt.go. Из конфига исключены: var-naming ODBC-имён в api/, commentFormatting/godot на //sys-директивах и cgo-преамбуле. Остаток в строгом прогоне — только осознанные категории: lll 50, err113 44, mnd 35, errcheck(check-blank) 27, paralleltest 11, nestif 7, gocognit 6, gochecknoglobals 4, G103 3, funlen 1. Проверки: build/gofmt/unit ✅, default lint 0, сьют Informix 0 FAIL / 32 SKIP / 39 PASS.
+
 ## Открытые проблемы
 
 - [x] **Высокий: отмена контекста не останавливает блокирующие операции ODBC.** *Исправлено 2026-11-01:* добавлен `api.SQLCancel` (все платформы) и `watchContext` — watcher-горутина вызывает `SQLCancel` при `ctx.Done()` для блокирующих `SQLExecute` (`Stmt.exec`, `Stmt.query1`) и `SQLFetch` (`Rows.Next`, контекст хранится в `Rows`). Гонка с освобождением handle закрыта через `cancelMu`/`freed` в `ODBCStmt`. Интеграционный тест `TestExecContextCancelDuringBlockedExec`: заблокированный на row-lock UPDATE отменяется ровно по дедлайну (3.0с) и возвращает `context deadline exceeded`.
@@ -92,18 +94,18 @@
 - [ ] **Высокая когнитивная сложность (gocognit, порог 30).** [`installer/setup.go`](installer/setup.go#L190) `main` — 89; [`sqlOut.go`](sqlOut.go#L248) `ConvertAssign` — 71; [`param.go`](param.go#L42) `BindValue` — 70; `odbcstmt.go`: 122 (`Exec` — 45), 237 (`BindColumns` — 31); [`rows.go`](rows.go#L146) `Next` — 34.
 - [ ] **Слишком длинные функции (funlen).** [`sqlOut.go`](sqlOut.go#L33) `newOut` — 75 операторов (>60).
 - [ ] **Глубокая вложенность (nestif, 8 шт.).** `installer/setup.go`: 172, 204, 382; `odbcstmt.go`: 146, 288; `pooling.go`: 223; `rows.go`: 150; `sqlOut.go`: 42.
-- [ ] **Неполные switch по `reflect.Kind` (exhaustive).** [`sqlOut.go`](sqlOut.go#L349): 349, 405, 479, 497 — отсутствующие ветки не покрыты `default`.
+- [x] **Неполные switch по `reflect.Kind` (exhaustive).** *Закрыто 2026-11-01:* во все switch в sqlOut.go добавлены явные `default` с сохранением поведения; в конфиге `default-signifies-exhaustive: true`.
 
 ### Стиль и гигиена — низкий приоритет
 
 - [ ] **Динамические ошибки вместо sentinel/`%w` (err113, 42 шт.).** `column.go`: 96, 149, 255, 314, 350, 385, 392; `database.go`: 21, 34, 97; `handle.go`: 31, 43; `installer/setup.go`: 41; `odbcstmt.go`: 128, 172, 180, 188, 250; `param.go`: 298, 376; `result.go`: 63; `sqlOut.go` ×15 (47, 80, 130, 219, 227, 231, 236, 256, 262, 268, 380, 411, 420, 429, 445); `stats.go`: 37; `stmt.go`: 66, 97, 161; `tx.go`: 29, 41.
 - [x] **staticcheck QF/ST (9 шт., помимо SA1019).** *Исправлено:* QF1001 — `error.go`; ST1005 — `installer/setup.go`: 35, 41, 47, 54; QF1008 — `conn.go`, `driver.go`, `pooling.go`, `installer/setup.go`; QF1003 — `installer/setup.go` (переписаны на switch).
 - [x] **gocritic.** *Исправлено:* ifElseChain → switch (`installer/setup.go`: 209, 271, 281, 390; `database.go`: 72); assignOp (`column.go`: 306); commentFormatting (`log2/logger1.go`). Остаётся только exitAfterDefer — см. блок безопасности.
-- [ ] **revive (50 шт.).** Преимущественно отсутствие комментариев у exported-символов `api/` (типы и функции `SQL*`, `Trace1`, `GetPath`, `Extract`, константы `SQL_SS_XML`, `SQL_DRIVER_NAME`, `SQL_ATTR_CONNECTION_POOLING` — ≈44); var-naming ALL_CAPS ×3; package-comments для `log2` ×2; indent-error-flow ×1.
-- [ ] **Строки длиннее 120 символов (lll, 43 шт.).** `api/api.go` ×12 (52–71); `api/api_unix.go` ×4 (23, 27, 206, 217); `api/zapi_unix.go` ×20 (42–310); `installer/setup.go`: 210, 212, 214, 216, 387; `column.go`: 68; `param.go`: 327.
-- [ ] **Магические числа (mnd, 33 шт.).** `column.go` ×8 (47, 84, 109, 111, 113, 147, 233, 424); `conn.go`: 36, 37, 101; `error.go`: 64; `installer/setup.go` ×9 (248, 258, 274, 283, 288, 345, 363, 366, 373); `odbcstmt.go`: 142; `param.go`: 139, 295; `pooling.go`: 166; `sqlOut.go` ×6 (77, 120, 499, 501, 503, 505); `utf16.go`: 33, 68.
-- [ ] **godot (3 шт.).** Комментарии без точки: `api/api.go`: 89; `api/api_unix.go`: 29; `conn.go`: 133.
-- [ ] **godox (3 шт.).** TODO-маркеры: `driver.go`: 52; `odbcstmt.go`: 20; `param.go`: 43 — либо закрыть, либо завести задачи.
+- [x] **revive (50 шт.).** *Исправлено 2026-11-01:* документированы все exported-символы драйвера и api/ (включая пакеты go_ibm_db/log2); исправлены var-naming (URL-имена, `lastInsertID`, `linuxUntar`/`aixUntar`), indent-error-flow/early-return/superfluous-else в инсталляторе, unused-parameter в интерфейсных методах Column, captLocal в `SQLColAttribute`. ODBC-имена констант/полей — публичный API: исключение var-naming для `api/` в конфиге. revive в строгом прогоне: **0**.
+- [ ] **Строки длиннее 120 символов (lll, 50 шт.).** `api/` (//sys-директивы и сгенерированные мосты — нельзя переносить без потери генерируемости), `installer/setup.go`, `column.go`, `param.go`. Кандидат на исключение в конфиге для api/.
+- [ ] **Магические числа (mnd, 35 шт.).** Размеры буферов и ODBC-значения в литералах; вынести в именованные константы.
+- [x] **godot (3 шт.).** *Закрыто 2026-11-01:* док-комментарии пула завершены точками; cgo-преамбула `api/api_unix.go` — исключение в конфиге (C-код нельзя аннотировать).
+- [x] **godox.** *Закрыто 2026-11-01:* устаревшие TODO переписаны в описательные комментарии, живые заметки сохранены без маркера.
 - [x] **intrange.** *Исправлено:* `database.go`: 26; `param.go` (все циклы по `d`); `pooling_test.go`: 52.
 - [x] **gofumpt.** *Исправлено:* `api/zapi_unix.go`: 257; `column.go`: 203; `handle.go`: 8. CI по-прежнему проверяет только `gofmt`.
 - [x] **perfsprint.** *Исправлено:* `fmt.Sprintf` → конкатенация: `api/api.go`: 92; `conn.go`: 58, 136 (неиспользуемый импорт `fmt` удалён).

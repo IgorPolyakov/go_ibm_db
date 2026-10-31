@@ -1,3 +1,5 @@
+// Command setup downloads and unpacks the IBM clidriver for the
+// current platform; run it via `go run installer/setup.go`.
 package main
 
 import (
@@ -122,7 +124,7 @@ func extractZipEntry(f *zip.File, targetDirectory string) error {
 	return nil
 }
 
-func linux_untar(clidriver string, targetDirectory string, ibmdbDir string) error {
+func linuxUntar(clidriver string, targetDirectory string, ibmdbDir string) error {
 	fmt.Printf("Extracting with tar -xzf %s -C %s", clidriver, targetDirectory)
 	out, err := exec.CommandContext(context.Background(), "tar", "xzf", "./../../"+clidriver, "-C", targetDirectory).Output() //nolint:gosec // G204: installer tool, arguments are built from the fixed IBM archive name
 
@@ -130,12 +132,11 @@ func linux_untar(clidriver string, targetDirectory string, ibmdbDir string) erro
 	if err != nil {
 		fmt.Println("Error while running tar: " + err.Error())
 		return err
-	} else {
-		fmt.Println("Extracted clidriver path = " + targetDirectory + "/clidriver")
-		fmt.Println("\nNow run below commands:")
-		fmt.Println("export IBM_DB_HOME=" + targetDirectory + "/clidriver")
-		fmt.Println("source " + ibmdbDir + "/installer/setenv.sh")
 	}
+	fmt.Println("Extracted clidriver path = " + targetDirectory + "/clidriver")
+	fmt.Println("\nNow run below commands:")
+	fmt.Println("export IBM_DB_HOME=" + targetDirectory + "/clidriver")
+	fmt.Println("source " + ibmdbDir + "/installer/setenv.sh")
 
 	if runtime.GOOS == "darwin" {
 		// Create symlinks for libdb2
@@ -147,7 +148,7 @@ func linux_untar(clidriver string, targetDirectory string, ibmdbDir string) erro
 	return nil
 }
 
-func aix_untar(clidriver string, targetDirectory string) error {
+func aixUntar(clidriver string, targetDirectory string) error {
 	fmt.Printf("Extracting with gunzip %s", clidriver)
 	gunzipOut, err := exec.Command("gunzip", "./../../"+clidriver).Output() //nolint:gosec // G204: installer tool, argument is the fixed IBM archive name
 
@@ -166,13 +167,12 @@ func aix_untar(clidriver string, targetDirectory string) error {
 	if err != nil {
 		fmt.Println("Error while running tar: " + err.Error())
 		return err
-	} else {
-		fmt.Println("Extracted clidriver path = " + targetDirectory + "/clidriver")
-		fmt.Println("\nNow run below commands:")
-		fmt.Println("export IBM_DB_HOME=" + targetDirectory + "/clidriver")
-		fmt.Println("export CGO_CFLAGS==\"-I$IBM_DB_HOME/include\"")
-		fmt.Println("export CGO_LDFLAGS==\"-L$IBM_DB_HOME/lib\"")
 	}
+	fmt.Println("Extracted clidriver path = " + targetDirectory + "/clidriver")
+	fmt.Println("\nNow run below commands:")
+	fmt.Println("export IBM_DB_HOME=" + targetDirectory + "/clidriver")
+	fmt.Println("export CGO_CFLAGS==\"-I$IBM_DB_HOME/include\"")
+	fmt.Println("export CGO_LDFLAGS==\"-L$IBM_DB_HOME/lib\"")
 
 	return nil
 }
@@ -202,19 +202,18 @@ func checkInstalledDriver(validateout string) bool {
 func checkIncludeDir(clidriver string) bool {
 	if dirExists(clidriver + "/include") {
 		// fmt.Println("clidriver/include folder exists in the path", clidriver)
-		if dirExists(clidriver + "/lib") {
-			// fmt.Println("clidriver/lib folder exists in the path", clidriver)
-			if fileExists(clidriver + "/include/sqlcli.h") {
-				return true
-			} else {
-				fmt.Println(clidriver + "/include/sqlcli.h file does not exist.")
-			}
-		} else {
+		if !dirExists(clidriver + "/lib") {
 			fmt.Println(clidriver + "/lib directory does not exist.")
+			return false
 		}
-	} else {
-		fmt.Println(clidriver + "/include directory does not exist.")
+		// fmt.Println("clidriver/lib folder exists in the path", clidriver)
+		if !fileExists(clidriver + "/include/sqlcli.h") {
+			fmt.Println(clidriver + "/include/sqlcli.h file does not exist.")
+			return false
+		}
+		return true
 	}
+	fmt.Println(clidriver + "/include directory does not exist.")
 	return false
 }
 
@@ -288,16 +287,15 @@ func main() {
 		if checkIncludeDir(existingDriver) {
 			fmt.Println("==> Skipping clidriver download.")
 			os.Exit(2)
-		} else {
-			// Attempt to remove the directory and its contents
-			err2 := os.RemoveAll(existingDriver) //nolint:gosec // G703: installer removes its own previously extracted directory
-			if err2 != nil {
-				fmt.Printf("Error deleting directory '%s': %v\n", existingDriver, err2)
-			} else {
-				fmt.Printf("Directory '%s' and its contents successfully deleted.\n", existingDriver)
-			}
-			fmt.Println("==> Installing clidriver ...")
 		}
+		// Attempt to remove the directory and its contents
+		err2 := os.RemoveAll(existingDriver) //nolint:gosec // G703: installer removes its own previously extracted directory
+		if err2 != nil {
+			fmt.Printf("Error deleting directory '%s': %v\n", existingDriver, err2)
+		} else {
+			fmt.Printf("Directory '%s' and its contents successfully deleted.\n", existingDriver)
+		}
+		fmt.Println("==> Installing clidriver ...")
 	}
 
 	switch runtime.GOOS {
@@ -379,27 +377,28 @@ func main() {
 		fmt.Println("Error: Unsupported platform!")
 		os.Exit(3)
 	}
-	fileUrl := getDownloadUrl(cliFileName)
-	fmt.Println("Downloading " + fileUrl)
+	fileURL := getDownloadURL(cliFileName)
+	fmt.Println("Downloading " + fileURL)
 
 	// Try primary
-	err := downloadFile(fileUrl, cliFileName)
+	err := downloadFile(fileURL, cliFileName)
+	if err == nil {
+		fmt.Println("Download completed.")
+		return
+	}
+	fmt.Println("Error:", err)
+	// Try fallback if IBM_DB_DOWNLOAD_URL is not set.
+	downloadURL, downloadURLFound := os.LookupEnv("IBM_DB_DOWNLOAD_URL")
+	if downloadURLFound && downloadURL != "" {
+		os.Exit(5)
+	}
+	fmt.Println("Trying fallback URL...")
+	newURL := strings.ReplaceAll(fileURL, primaryURL, fallbackURL)
+	err = downloadFile(newURL, cliFileName)
 	if err != nil {
-		fmt.Println("Error:", err)
-		// Try fallback if IBM_DB_DOWNLOAD_URL is not set.
-		downloadUrl, downloadUrlFound := os.LookupEnv("IBM_DB_DOWNLOAD_URL")
-		if !downloadUrlFound || downloadUrl == "" {
-			fmt.Println("Trying fallback URL...")
-			newUrl := strings.ReplaceAll(fileUrl, primaryURL, fallbackURL)
-			err = downloadFile(newUrl, cliFileName)
-			if err != nil {
-				fmt.Println("Fallback download failed:", err)
-				fmt.Println("Error while downloading file: " + err.Error())
-				os.Exit(4)
-			}
-		} else {
-			os.Exit(5)
-		}
+		fmt.Println("Fallback download failed:", err)
+		fmt.Println("Error while downloading file: " + err.Error())
+		os.Exit(4)
 	}
 	fmt.Println("Download completed.")
 
@@ -407,34 +406,34 @@ func main() {
 	case 1:
 		Unzipping(cliFileName, target)
 	case 3:
-		if err := aix_untar(cliFileName, target); err != nil {
+		if err := aixUntar(cliFileName, target); err != nil {
 			fmt.Println("Error extracting archive:", err)
 		}
 	default:
-		if err := linux_untar(cliFileName, target, ibmdbDir); err != nil {
+		if err := linuxUntar(cliFileName, target, ibmdbDir); err != nil {
 			fmt.Println("Error extracting archive:", err)
 		}
 	}
 }
 
-func getDownloadUrl(cliFileName string) string {
-	downloadUrl, downloadUrlFound := os.LookupEnv("IBM_DB_DOWNLOAD_URL")
-	if !downloadUrlFound || downloadUrl == "" {
+func getDownloadURL(cliFileName string) string {
+	downloadURL, downloadURLFound := os.LookupEnv("IBM_DB_DOWNLOAD_URL")
+	if !downloadURLFound || downloadURL == "" {
 		clidriverVersion, ok := os.LookupEnv("CLIDRIVER_DOWNLOAD_VERSION")
 		if ok && clidriverVersion != "" {
 			switch {
 			case runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && strings.HasPrefix(strings.ToLower(clidriverVersion), "v11"):
-				downloadUrl = primaryURL + cliFileName
+				downloadURL = primaryURL + cliFileName
 			case runtime.GOOS == "darwin" && runtime.GOARCH != "arm64" && strings.HasPrefix(strings.ToLower(clidriverVersion), "v12"):
-				downloadUrl = primaryURL + cliFileName
+				downloadURL = primaryURL + cliFileName
 			default:
-				downloadUrl = primaryURL + clidriverVersion + "/" + cliFileName
+				downloadURL = primaryURL + clidriverVersion + "/" + cliFileName
 			}
 		} else {
-			downloadUrl = primaryURL + cliFileName
+			downloadURL = primaryURL + cliFileName
 		}
 	} else {
-		fmt.Println("IBM_DB_DOWNLOAD_URL is set to", downloadUrl)
+		fmt.Println("IBM_DB_DOWNLOAD_URL is set to", downloadURL)
 	}
-	return downloadUrl
+	return downloadURL
 }

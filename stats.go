@@ -12,6 +12,7 @@ import (
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
 
+// Stats counts allocated ODBC handles by type, exposed for diagnostics.
 type Stats struct {
 	EnvCount  int
 	ConnCount int

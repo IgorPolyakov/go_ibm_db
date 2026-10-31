@@ -15,6 +15,7 @@ import (
 	trc "github.com/ibmdb/go_ibm_db/log2"
 )
 
+// IsError reports whether an ODBC return code is a failure (anything but SQL_SUCCESS or SQL_SUCCESS_WITH_INFO).
 func IsError(ret api.SQLRETURN) bool {
 	trc.Trace1("error.go: IsError() - ENTRY")
 	switch ret {
@@ -27,6 +28,7 @@ func IsError(ret api.SQLRETURN) bool {
 	return ret != api.SQL_SUCCESS && ret != api.SQL_SUCCESS_WITH_INFO
 }
 
+// DiagRecord is one ODBC diagnostic record (SQLSTATE, native error and message).
 type DiagRecord struct {
 	State       string
 	NativeError int
@@ -37,6 +39,7 @@ func (r *DiagRecord) String() string {
 	return fmt.Sprintf("{%s} %s", r.State, r.Message)
 }
 
+// Error is an ODBC diagnostic error carrying the failing API name and its diagnostic records.
 type Error struct {
 	APIName string
 	Diag    []DiagRecord
@@ -53,6 +56,7 @@ func (e *Error) Error() string {
 	return e.APIName + ": " + strings.Join(ss, "\n")
 }
 
+// NewError retrieves the diagnostics of handle and wraps them into an *Error naming the failing API call.
 func NewError(apiName string, handle interface{}) error {
 	trc.Trace1("error.go: NewError() - ENTRY")
 	trc.Trace1("apiName=" + apiName)

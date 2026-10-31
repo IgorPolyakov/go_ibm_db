@@ -30,6 +30,7 @@ SQLRETURN sqlSetConnectUIntPtrAttr(SQLHDBC connectionHandle, SQLINTEGER attribut
 */
 import "C"
 
+// ODBC constants mirrored from sqlcli1.h; names follow the C API.
 const (
 	SQL_OV_ODBC3 = uintptr(C.SQL_OV_ODBC3)
 
@@ -97,7 +98,7 @@ const (
 	SQL_BOOLEAN                      = C.SQL_BOOLEAN
 	SQL_XML                          = C.SQL_XML
 
-	// TODO(lukemauldin): Not defined in sqlext.h. Using windows value, but it is not supported.
+	// SQL_SS_XML is not defined in sqlext.h: uses the windows value, but it is not supported.
 	SQL_SS_XML = -152
 
 	SQL_C_CHAR                  = C.SQL_C_CHAR
@@ -145,8 +146,9 @@ const (
 	SQL_DECFLOAT           = C.SQL_DECFLOAT
 	SQL_ATTR_PARAMSET_SIZE = C.SQL_ATTR_PARAMSET_SIZE
 
-	// SQLGetInfo info types. Passed as the infoType argument to SQLGetInfo /
-	// Conn.GetInfo to query DBMS/driver information from the connection.
+	// SQL_DRIVER_NAME is a SQLGetInfo info type: the DB2 CLI driver name.
+	// Other SQL_*_VER info types below follow the same convention and are
+	// passed as the infoType argument to SQLGetInfo / Conn.GetInfo.
 	SQL_DRIVER_NAME   = C.SQL_DRIVER_NAME
 	SQL_DRIVER_VER    = C.SQL_DRIVER_VER
 	SQL_ODBC_VER      = C.SQL_ODBC_VER
@@ -168,7 +170,8 @@ const (
 	SQL_IS_UINTEGER = C.SQL_IS_UINTEGER
 	SQL_IS_INTEGER  = C.SQL_IS_INTEGER
 
-	// Connection pooling
+	// SQL_ATTR_CONNECTION_POOLING and friends enable/configure driver
+	// manager level connection pooling.
 	SQL_ATTR_CONNECTION_POOLING = C.SQL_ATTR_CONNECTION_POOLING
 	SQL_ATTR_CP_MATCH           = C.SQL_ATTR_CP_MATCH
 	SQL_CP_OFF                  = uintptr(C.SQL_CP_OFF)
@@ -179,26 +182,45 @@ const (
 	SQL_CP_RELAXED_MATCH        = uintptr(C.SQL_CP_RELAXED_MATCH)
 )
 
+// ODBC handle and scalar types bound to their C counterparts (unix build).
 type (
+	// SQLHANDLE is a generic ODBC handle (environment, connection or statement).
 	SQLHANDLE C.SQLHANDLE
-	SQLHENV   C.SQLHENV
-	SQLHDBC   C.SQLHDBC
-	SQLHSTMT  C.SQLHSTMT
-	SQLHWND   uintptr
+	// SQLHENV is an ODBC environment handle.
+	SQLHENV C.SQLHENV
+	// SQLHDBC is an ODBC connection handle.
+	SQLHDBC C.SQLHDBC
+	// SQLHSTMT is an ODBC statement handle.
+	SQLHSTMT C.SQLHSTMT
+	// SQLHWND is a window handle placeholder (Windows only).
+	SQLHWND uintptr
 
-	SQLWCHAR     C.SQLWCHAR
-	SQLSCHAR     C.SQLSCHAR
-	SQLSMALLINT  C.SQLSMALLINT
+	// SQLWCHAR is the ODBC wide (UTF-16) character type.
+	SQLWCHAR C.SQLWCHAR
+	// SQLSCHAR is the ODBC signed char type.
+	SQLSCHAR C.SQLSCHAR
+	// SQLSMALLINT is the ODBC 16-bit signed integer type.
+	SQLSMALLINT C.SQLSMALLINT
+	// SQLUSMALLINT is the ODBC 16-bit unsigned integer type.
 	SQLUSMALLINT C.SQLUSMALLINT
-	SQLINTEGER   C.SQLINTEGER
-	SQLUINTEGER  C.SQLUINTEGER
-	SQLPOINTER   C.SQLPOINTER
-	SQLRETURN    C.SQLRETURN
+	// SQLINTEGER is the ODBC 32-bit signed integer type.
+	SQLINTEGER C.SQLINTEGER
+	// SQLUINTEGER is the ODBC 32-bit unsigned integer type.
+	SQLUINTEGER C.SQLUINTEGER
+	// SQLPOINTER is an ODBC buffer pointer; integer statement attributes
+	// are also passed through it.
+	SQLPOINTER C.SQLPOINTER
+	// SQLRETURN is the ODBC return code (SQL_SUCCESS, SQL_ERROR, ...).
+	SQLRETURN C.SQLRETURN
 
-	SQLLEN  C.SQLLEN
+	// SQLLEN is the ODBC length/indicator type.
+	SQLLEN C.SQLLEN
+	// SQLULEN is the ODBC unsigned length type.
 	SQLULEN C.SQLULEN
 )
 
+// SQLSetEnvUIntPtrAttr sets an environment attribute whose value is an
+// integer passed via a uintptr.
 func SQLSetEnvUIntPtrAttr(environmentHandle SQLHENV, attribute SQLINTEGER, valuePtr uintptr, stringLength SQLINTEGER) (ret SQLRETURN) {
 	trc.Trace1("api/api_unix.go SQLSetEnvUIntPtrAttr() - ENTRY")
 	trc.Trace1(fmt.Sprintf("attribute=%d, valuePtr=0x%x, stringLength=%d", attribute, valuePtr, stringLength))
@@ -210,6 +232,8 @@ func SQLSetEnvUIntPtrAttr(environmentHandle SQLHENV, attribute SQLINTEGER, value
 	return SQLRETURN(r)
 }
 
+// SQLSetConnectUIntPtrAttr sets a connection attribute whose value is
+// an integer passed via a uintptr.
 func SQLSetConnectUIntPtrAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, valuePtr uintptr, stringLength SQLINTEGER) (ret SQLRETURN) {
 	trc.Trace1("api/api_unix.go SQLSetConnectUIntPtrAttr() - ENTRY")
 	trc.Trace1(fmt.Sprintf("attribute=%d, valuePtr=%x, stringLength=%d", attribute, valuePtr, stringLength))

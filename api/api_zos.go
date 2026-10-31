@@ -132,7 +132,7 @@ const (
 	SQL_C_TYPE_DATE                  = 91
 	SQL_C_TYPE_TIME                  = 92
 
-	// TODO(hyder): Not defined in sqlext.h. Using windows value, but it is not supported.
+	// Not defined in sqlext.h: uses the windows value, but it is not supported.
 	SQL_SS_XML = -152
 
 	MAX_FIELD_SIZE = 1024
