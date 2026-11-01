@@ -18,15 +18,15 @@ import (
 
 type mutex struct {
 	mu sync.Mutex
-	id uintptr
+	id uintptr // guarded by orderMu (assigned on first use)
 }
 
 var (
 	orderMu    sync.Mutex
 	orderEdges = map[[2]uintptr][]string{} // {from,to} -> example stacks
-	nextMuID   uintptr
-	heldMu     = map[uint64][]uintptr{} // goroutine id -> held mutex ids
-	nameOf     = map[uintptr]string{}   // mutex id -> short name (set on first stack)
+	nextMuID   uintptr                     // guarded by orderMu
+	heldMu     = map[uint64][]uintptr{}    // goroutine id -> held mutex ids
+	nameOf     = map[uintptr]string{}      // mutex id -> first acquisition site
 )
 
 func goroutineID() uint64 {
@@ -56,23 +56,20 @@ func stackTop(skip int) string {
 	}
 }
 
-func (m *mutex) init() {
-	if m.id != 0 {
-		return
-	}
-	orderMu.Lock()
-	nextMuID++
-	m.id = nextMuID
-	nameOf[m.id] = stackTop(2)
-	orderMu.Unlock()
-}
-
-func (m *mutex) checkOrder() {
+func (m *mutex) Lock() {
 	gid := goroutineID()
-	orderMu.Lock()
-	held := heldMu[gid]
 	here := stackTop(2)
-	for _, from := range held {
+
+	orderMu.Lock()
+	// assign the id under orderMu: two goroutines can first-lock the
+	// same mutex concurrently, and an unguarded m.id write is a data
+	// race of exactly the kind this build mode exists to detect
+	if m.id == 0 {
+		nextMuID++
+		m.id = nextMuID
+		nameOf[m.id] = here
+	}
+	for _, from := range heldMu[gid] {
 		if from == m.id {
 			continue
 		}
@@ -87,18 +84,15 @@ func (m *mutex) checkOrder() {
 			os.Stderr.Sync()
 		}
 	}
-	heldMu[gid] = append(held, m.id)
+	heldMu[gid] = append(heldMu[gid], m.id)
 	orderMu.Unlock()
-}
 
-func (m *mutex) Lock() {
-	m.init()
-	m.checkOrder()
 	m.mu.Lock()
 }
 
 func (m *mutex) Unlock() {
 	gid := goroutineID()
+
 	orderMu.Lock()
 	held := heldMu[gid]
 	for i := len(held) - 1; i >= 0; i-- {
@@ -108,5 +102,6 @@ func (m *mutex) Unlock() {
 		}
 	}
 	orderMu.Unlock()
+
 	m.mu.Unlock()
 }

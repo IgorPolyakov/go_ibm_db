@@ -43,7 +43,7 @@ grep -E '^--- FAIL' /tmp/opencode/db2_suite.log | head -10 || true
 
 echo "=== stress vs DB2 LUW:"
 ( cd . && DB2_STRESS_DSN="$DSN" DB2_STRESS_QUERY='SELECT COUNT(*) FROM SYSCAT.TABLES' \
-  DB2_STRESS_ROWS_QUERY='SELECT TABSCHEMA FROM SYSCAT.TABLES FETCH FIRST 32 ROWS ONLY' \
+  DB2_STRESS_ROWS_QUERY='SELECT 1 FROM SYSCAT.TABLES FETCH FIRST 32 ROWS ONLY' \
   DB2_STRESS_DURATION=60s DB2_STRESS_WORKERS=8 DB2_STRESS_TEST_TIMEOUT=180s \
   go test -race -count=1 -run '^TestLiveStress$' -v ./stress > /tmp/opencode/db2_stress.log 2>&1 )
 grep -E -e '^--- ' -e 'handles:' -e 'operations=' /tmp/opencode/db2_stress.log | tail -3

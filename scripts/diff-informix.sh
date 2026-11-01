@@ -55,7 +55,7 @@ for q in "${queries[@]}"; do
     | grep -v '^\\N$' | tail -n +2 > "$work/isql.$i"
   "$work/dumpquery" -dsn "$GO_DSN" -q "$q" > "$work/go.$i"
   if python3 - "$work/isql.$i" "$work/go.$i" <<'PYCMP'
-import sys
+import re, sys
 def rows(path):
     out = []
     for line in open(path):
@@ -64,6 +64,12 @@ def rows(path):
             f = f.strip().replace(",", ".")
             if f == "\\N":
                 f = ""   # isql renders NULL and '' identically
+            # integers must match EXACTLY: parsing them as float64 loses
+            # precision beyond 2^53, and a relative tolerance would then
+            # admit billion-scale drift on BIGINT edge values
+            if re.fullmatch(r"-?\d+", f):
+                fields.append(("int", f))
+                continue
             try:
                 f = float(f)
             except ValueError:
@@ -78,6 +84,17 @@ for ra, rb in zip(a, b):
     if len(ra) != len(rb):
         print("field count mismatch", ra, rb); sys.exit(1)
     for xa, xb in zip(ra, rb):
+        if isinstance(xa, tuple) or isinstance(xb, tuple):
+            if isinstance(xa, tuple) and isinstance(xb, tuple):
+                if xa[1] != xb[1]:
+                    print("integer mismatch", xa, xb); sys.exit(1)
+                continue
+            # cross rendering, e.g. isql "0.0E+000" vs Go "0": compare
+            # exactly while the float side stays integral below 2^53
+            iv, fv = (xa, xb) if isinstance(xa, tuple) else (xb, xa)
+            if isinstance(fv, float) and fv == int(fv) and abs(fv) < 2**53 and int(iv[1]) == int(fv):
+                continue
+            print("integer mismatch", xa, xb); sys.exit(1)
         if isinstance(xa, float) and isinstance(xb, float):
             if abs(xa - xb) > 1e-9 * max(abs(xa), abs(xb), 1e-300):
                 print("numeric mismatch", xa, xb); sys.exit(1)
