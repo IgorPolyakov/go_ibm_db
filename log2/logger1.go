@@ -7,62 +7,61 @@
 package log2
 
 import (
-	"fmt"
 	"log"
 	"os"
+	"sync"
 )
 
-var globalvar string = ""
-
-// traceFileWarned prevents spamming stderr when the trace file stays broken.
-var traceFileWarned bool
-
-// GetPath selects the trace destination: a file path (the file is
-// recreated on each run), "stdout", or empty to disable tracing.
-func GetPath(filename string) {
-	// fmt.Println("filename = ", filename)
-	// fmt.Println("Args Length = ", argsLen)
-
-	if filename != "" && filename != "stdout" {
-		if _, err := os.Stat(filename); err == nil {
-			// fmt.Println("File exits\n")
-			e := os.Remove(filename)
-			if e != nil {
-				fmt.Println("Problem in removing existing log file")
-			}
-		}
-	}
-
-	globalvar = filename
+var trace struct {
+	sync.Mutex
+	logger *log.Logger
+	file   *os.File
 }
 
-// Trace1 writes one message to the configured trace destination; it is
-// a no-op when tracing is disabled and never terminates the program.
-func Trace1(msg1 string) {
-	if globalvar == "" {
+// GetPath selects the trace destination: a file path, "stdout", or empty
+// to disable tracing. File output is appended with owner-only permissions.
+func GetPath(filename string) {
+	trace.Lock()
+	defer trace.Unlock()
+
+	trace.logger = nil
+	if trace.file != nil {
+		_ = trace.file.Close()
+		trace.file = nil
+	}
+
+	switch filename {
+	case "":
+		return
+	case "stdout":
+		trace.logger = log.New(os.Stdout, "", log.LstdFlags)
 		return
 	}
 
-	if globalvar == "stdout" {
-		log.SetOutput(os.Stdout)
-		log.Println(msg1)
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
 		return
 	}
-
-	// file, errlog := os.OpenFile("C:\\temp\\testlogs2.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	file, errlog := os.OpenFile(globalvar, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-	if errlog != nil {
-		// a broken trace file must not kill the application
-		if !traceFileWarned {
-			traceFileWarned = true
-			fmt.Fprintln(os.Stderr, "go_ibm_db: cannot open trace file:", errlog)
-		}
+	if err = file.Chmod(0o600); err != nil {
+		_ = file.Close()
 		return
 	}
-	defer func() { _ = file.Close() }()
+	trace.file = file
+	trace.logger = log.New(file, "", log.LstdFlags)
+}
 
-	log.SetOutput(file)
-	log.Println(msg1)
+// Trace1 writes one message to the configured trace destination. Formatting
+// happens only when tracing is enabled.
+func Trace1(msg string, args ...any) {
+	trace.Lock()
+	defer trace.Unlock()
 
-	_ = file.Sync()
+	if trace.logger == nil {
+		return
+	}
+	if len(args) == 0 {
+		trace.logger.Println(msg)
+	} else {
+		trace.logger.Printf(msg, args...)
+	}
 }

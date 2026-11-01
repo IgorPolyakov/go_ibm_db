@@ -69,7 +69,7 @@ func (r *Result) LastInsertId() (int64, error) {
 			return 0, errUnexpectedType
 		}
 	}
-	trc.Trace1(fmt.Sprintf("LastInsertid = %d", lastInsertID))
+	trc.Trace1("LastInsertid = %d", lastInsertID)
 	trc.Trace1("result.go: LastInsetId() - EXIT")
 
 	return lastInsertID, nil

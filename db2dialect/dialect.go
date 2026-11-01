@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
 	"strings"
 	"time"
 
@@ -195,7 +194,6 @@ func (d *Dialect) Init(db *sql.DB) {
 
 	conn, err := db.Conn(context.Background())
 	if err != nil {
-		log.Printf("db2dialect: unable to deduce DB2 platform (%v), defaulting to LUW", err)
 		d.autoDetected = true
 		return
 	}
@@ -212,7 +210,6 @@ func (d *Dialect) Init(db *sql.DB) {
 		return callErr
 	})
 	if rawErr != nil {
-		log.Printf("db2dialect: unable to deduce DB2 platform (%v), defaulting to LUW", rawErr)
 		d.autoDetected = true
 		return
 	}

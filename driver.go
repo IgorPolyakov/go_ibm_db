@@ -20,7 +20,8 @@ var drv Driver
 // Driver is the database/sql driver registered under the name go_ibm_db.
 type Driver struct {
 	Stats
-	h api.SQLHENV // environment handle
+	h       api.SQLHENV // environment handle
+	initErr error
 }
 
 func initDriver() error {
@@ -66,18 +67,15 @@ func init() {
 
 	trc.Trace1("driver.go:init() - ENTRY")
 
-	// Recover from panic to avoid stop an application when can't get the db2 cli
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Printf("%s\nThe go_ibm_db driver cannot be registered\n", err)
-		}
+	func() {
+		defer func() {
+			if err := recover(); err != nil {
+				drv.initErr = fmt.Errorf("initialize go_ibm_db: %v", err)
+			}
+		}()
+		drv.initErr = initDriver()
 	}()
 
-	err := initDriver()
-	if err != nil {
-		panic(err)
-	}
-	// go's to databse/sql/sql.go 43 line
 	sql.Register("go_ibm_db", &drv)
 
 	trc.Trace1("driver.go:init() - EXIT")

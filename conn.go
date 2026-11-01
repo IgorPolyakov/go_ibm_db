@@ -72,7 +72,9 @@ func maskDSN(dsn string) string {
 // Open connects using a DSN string (UID, PWD, HOSTNAME, DATABASE, ...).
 func (d *Driver) Open(dsn string) (driver.Conn, error) {
 	trc.Trace1("conn.go: Open() - ENTRY")
-	trc.Trace1("dsn = " + maskDSN(dsn))
+	if d.initErr != nil {
+		return nil, d.initErr
+	}
 
 	cleanDSN, fetchSize := parseDSN(dsn)
 
@@ -201,7 +203,6 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 }
 
 func (c *Conn) query(ctx context.Context, query string, args []driver.Value) (driver.Rows, error) {
-	trc.Trace1("query = " + query)
 
 	if len(args) > 0 {
 		// Not implemented for queries with parameters

@@ -96,7 +96,6 @@ func UTF16ToString(s []uint16) string {
 // with a terminating NUL added.
 func StringToUTF16(s string) []uint16 {
 	trc.Trace1("api/api.go StringToUTF16()")
-	trc.Trace1("api/api.go StringToUTF16() - s = " + s)
 
 	if runtime.GOOS == "zos" {
 		return utf16.Encode([]rune(s))

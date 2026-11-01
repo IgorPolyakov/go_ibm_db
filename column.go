@@ -317,7 +317,7 @@ type BindableColumn struct {
 // NewBindableColumn creates a column bound to a fixed-size buffer.
 func NewBindableColumn(b *BaseColumn, ctype api.SQLSMALLINT, bufSize int) *BindableColumn {
 	trc.Trace1("column.go: NewBindableColumn() - ENTRY")
-	trc.Trace1(fmt.Sprintf("bufSize = %d", bufSize))
+	trc.Trace1("bufSize = %d", bufSize)
 
 	b.CType = ctype
 	c := &BindableColumn{BaseColumn: b, Size: bufSize}
@@ -365,7 +365,7 @@ func NewVariableWidthColumn(b *BaseColumn, ctype api.SQLSMALLINT, colWidth api.S
 // Bind binds the column buffer to the statement, switching to row-wise array binding in block fetch mode.
 func (c *BindableColumn) Bind(h api.SQLHSTMT, idx int) (bool, error) {
 	trc.Trace1("column.go: Bind() - ENTRY")
-	trc.Trace1(fmt.Sprintf("idx = %d", idx))
+	trc.Trace1("idx = %d", idx)
 
 	ret := c.Len.Bind(h, idx, c.CType, c.Buffer)
 	if IsError(ret) {
@@ -379,7 +379,7 @@ func (c *BindableColumn) Bind(h api.SQLHSTMT, idx int) (bool, error) {
 // Value converts the bound buffer contents into a driver.Value.
 func (c *BindableColumn) Value(h api.SQLHSTMT, idx int) (driver.Value, error) {
 	trc.Trace1("column.go: Value() - ENTRY")
-	trc.Trace1(fmt.Sprintf("idx = %d", idx))
+	trc.Trace1("idx = %d", idx)
 
 	if !c.IsBound {
 		ret := c.Len.GetData(h, idx, c.CType, c.Buffer)

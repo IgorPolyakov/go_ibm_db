@@ -2,7 +2,6 @@ package go_ibm_db
 
 import (
 	"database/sql"
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,7 +40,6 @@ const (
 // Pconnect returns a pool instance for the given option string.
 func Pconnect(poolSize string) *Pool {
 	trc.Trace1("pooling.go: Pconnect() - ENTRY")
-	trc.Trace1("poolSize=" + poolSize)
 
 	var size int
 	count := len(poolSize)
@@ -55,7 +53,7 @@ func Pconnect(poolSize string) *Pool {
 				size = n
 			}
 		} else {
-			fmt.Println("Not a valid parameter")
+			trc.Trace1("pooling.go: invalid option")
 		}
 	} else {
 		size = defaultMaxIdleConns
@@ -114,7 +112,6 @@ func (p *Pool) takeAvailableLocked(connStr string, lifetime time.Duration) *DBP 
 // new one when the pool has capacity.
 func (p *Pool) Open(connStr string, options ...string) *DBP {
 	trc.Trace1("pooling.go: Open() - ENTRY")
-	trc.Trace1("connStr=" + maskDSN(connStr))
 
 	var Time time.Duration
 	configuredLifetime := false
@@ -130,7 +127,7 @@ func (p *Pool) Open(connStr string, options ...string) *DBP {
 				Time = time.Duration(n) * time.Second
 				configuredLifetime = true
 			} else {
-				fmt.Println("Not a valid parameter")
+				trc.Trace1("pooling.go: invalid option")
 			}
 		}
 	}
@@ -179,7 +176,6 @@ func (p *Pool) Open(connStr string, options ...string) *DBP {
 		p.mu.Unlock()
 
 		if !time.Now().Before(deadline) {
-			fmt.Println("Connection timeout")
 			trc.Trace1("Connection timeout")
 			trc.Trace1("pooling.go: Open() - EXIT")
 			return nil
@@ -191,7 +187,7 @@ func (p *Pool) Open(connStr string, options ...string) *DBP {
 // Init eagerly opens numConn connections into the pool.
 func (p *Pool) Init(numConn int, connStr string) bool {
 	trc.Trace1("pooling.go: Init() - ENTRY")
-	trc.Trace1(fmt.Sprintf("numConn=%d, connStr=%s", numConn, maskDSN(connStr)))
+	trc.Trace1("numConn=%d", numConn)
 
 	var Time time.Duration
 
@@ -392,19 +388,26 @@ func (p *Pool) Release() {
 	trc.Trace1("pooling.go: Release() - EXIT")
 }
 
-// Display prints the pool maps and size for debugging.
+// Display traces pool sizes for debugging.
 //
 // Deprecated: debug helper kept for backward compatibility only.
 func (p *Pool) Display() {
-	fmt.Println(p.availablePool)
-	fmt.Println(p.usedPool)
-	fmt.Println(p.poolSize)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	available, used := 0, 0
+	for _, entries := range p.availablePool {
+		available += len(entries)
+	}
+	for _, entries := range p.usedPool {
+		used += len(entries)
+	}
+	trc.Trace1("pooling.go: available=%d, used=%d, size=%d", available, used, p.poolSize)
 }
 
 // SetConnMaxLifetime sets the pooled connection lifetime in seconds.
 func (p *Pool) SetConnMaxLifetime(num int) {
 	trc.Trace1("pooling.go: SetConnMaxLifetime()")
-	trc.Trace1(fmt.Sprintf("connMaxLifetime=%d", num))
+	trc.Trace1("connMaxLifetime=%d", num)
 
 	if num <= 0 {
 		num = defaultConnMaxLifetime

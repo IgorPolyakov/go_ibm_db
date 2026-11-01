@@ -26,7 +26,6 @@ type Stmt struct {
 // Prepare prepares a statement.
 func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 	trc.Trace1("stmt.go: Prepare()")
-	trc.Trace1("query=" + query)
 
 	return c.PrepareContext(context.Background(), query)
 }
@@ -34,7 +33,6 @@ func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 // PrepareContext prepares a statement, honoring context cancellation after allocation.
 func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	trc.Trace1("stmt.go: PrepareContext() - ENTRY")
-	trc.Trace1("query=" + query)
 
 	os, err := c.PrepareODBCStmt(query)
 	if err != nil {

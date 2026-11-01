@@ -105,7 +105,6 @@ func (e *Error) Error() string {
 	for i, r := range e.Diag {
 		ss[i] = r.String()
 	}
-	trc.Trace1(fmt.Sprintf("%s : %s", e.APIName, ss))
 	trc.Trace1("error.go: Error() - EXIT")
 	return e.APIName + ": " + strings.Join(ss, "\n")
 }
@@ -113,7 +112,6 @@ func (e *Error) Error() string {
 // NewError retrieves the diagnostics of handle and wraps them into an *Error naming the failing API call.
 func NewError(apiName string, handle interface{}) error {
 	trc.Trace1("error.go: NewError() - ENTRY")
-	trc.Trace1("apiName=" + apiName)
 
 	var ret api.SQLRETURN
 	h, ht := ToHandleAndType(handle)
@@ -138,7 +136,7 @@ func NewError(apiName string, handle interface{}) error {
 			break
 		}
 		if IsError(ret) {
-			trc.Trace1(fmt.Sprintf("SQLGetDiagRec failed: ret=%d", ret))
+			trc.Trace1("SQLGetDiagRec failed: ret=%d", ret)
 			if len(err.Diag) == 0 {
 				err.Diag = append(err.Diag, DiagRecord{Message: fmt.Sprintf("SQLGetDiagRec failed: ret=%d", ret)})
 			}
@@ -156,7 +154,6 @@ func NewError(apiName string, handle interface{}) error {
 		}
 		err.Diag = append(err.Diag, r)
 	}
-	trc.Trace1(fmt.Sprintf("Error: %s", err))
 	trc.Trace1("error.go: NewError() - EXIT")
 	return err
 }

@@ -7,7 +7,6 @@ package go_ibm_db
 import (
 	"context"
 	"database/sql/driver"
-	"fmt"
 	"io"
 	"reflect"
 	"unsafe"
@@ -55,7 +54,7 @@ func (r *Rows) Columns() []string {
 func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
 	// returns the precision and scale of the column when known
 	trc.Trace1("rows.go: ColumnTypePrecisionScale() - ENTRY")
-	trc.Trace1(fmt.Sprintf("index=%d", index))
+	trc.Trace1("index=%d", index)
 
 	ok = false
 	var namelen api.SQLSMALLINT
@@ -67,8 +66,7 @@ func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok b
 		api.SQLPOINTER(unsafe.Pointer(nil)))
 
 	if IsError(ret) {
-		fmt.Println(ret)
-		trc.Trace1(fmt.Sprintf("Error: %d", ret))
+		trc.Trace1("Error: %d", ret)
 		return 0, 0, false
 	}
 	dbtype := string(namebuf[:namelen])
@@ -78,8 +76,7 @@ func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok b
 		nil,
 		api.SQLPOINTER(unsafe.Pointer(&precision)))
 	if IsError(ret) {
-		fmt.Println(ret)
-		trc.Trace1(fmt.Sprintf("Error: %d", ret))
+		trc.Trace1("Error: %d", ret)
 		return 0, 0, false
 	}
 	ret = api.SQLColAttribute(r.os.h, odbcNum(index), api.SQL_DESC_SCALE,
@@ -88,8 +85,7 @@ func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok b
 		nil,
 		api.SQLPOINTER(unsafe.Pointer(&scale)))
 	if IsError(ret) {
-		fmt.Println(ret)
-		trc.Trace1(fmt.Sprintf("Error: %d", ret))
+		trc.Trace1("Error: %d", ret)
 		return 0, 0, false
 	}
 	switch dbtype {
@@ -101,7 +97,7 @@ func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok b
 		ok = true
 	}
 
-	trc.Trace1(fmt.Sprintf("precision=%d, scale=%d", precision, scale))
+	trc.Trace1("precision=%d, scale=%d", precision, scale)
 	trc.Trace1("rows.go: ColumnTypePrecisionScale() - EXIT")
 	return precision, scale, ok
 }
@@ -116,7 +112,7 @@ func (r *Rows) ColumnTypeLength(index int) (length int64, ok bool) {
 		nil,
 		api.SQLPOINTER(unsafe.Pointer(&length)))
 	if IsError(ret) {
-		fmt.Println(ret)
+		trc.Trace1("SQLColAttribute returned %d", ret)
 		return 0, false
 	}
 	trc.Trace1("rows.go: ColumnTypeLength() - EXIT")
@@ -135,7 +131,7 @@ func (r *Rows) ColumnTypeNullable(index int) (nullable, ok bool) {
 		nil,
 		api.SQLPOINTER(unsafe.Pointer(&null)))
 	if IsError(ret) {
-		fmt.Println(ret)
+		trc.Trace1("SQLColAttribute returned %d", ret)
 		return false, false
 	}
 	if null == api.SQL_NULLABLE {
@@ -150,7 +146,7 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 	// returns the scan type used to scan the column
 	// the data to the golang variable.
 	trc.Trace1("rows.go: ColumnTypeScanType()")
-	trc.Trace1(fmt.Sprintf("index=%d", index))
+	trc.Trace1("index=%d", index)
 
 	a := r.os.Cols[index].TypeScan()
 	return a
@@ -171,7 +167,7 @@ func (r *Rows) ColumnTypeDatabaseTypeName(index int) string {
 		api.SQLPOINTER(unsafe.Pointer(nil)))
 
 	if IsError(ret) {
-		fmt.Println(ret)
+		trc.Trace1("SQLColAttribute returned %d", ret)
 		return ""
 	}
 	dbtype := string(namebuf[:namelen])

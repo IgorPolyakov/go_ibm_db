@@ -8,8 +8,6 @@ package api
 
 import (
 	"fmt"
-	"log"
-	"runtime"
 	"unsafe"
 
 	trc "github.com/ibmdb/go_ibm_db/log2"
@@ -17,10 +15,12 @@ import (
 )
 
 func getFunc(dll *utils.Dll, str string) uintptr {
+	if loadError != nil {
+		panic(loadError)
+	}
 	fp, e := dll.Sym(str)
 	if e != nil {
-		pc, fn, line, _ := runtime.Caller(1)
-		log.Fatalf("[FATAL] %s [%s:%s:%d]", e, runtime.FuncForPC(pc).Name(), fn, line)
+		panic(fmt.Errorf("load DB2 CLI symbol %s: %w", str, e))
 	}
 	return fp
 }
@@ -192,7 +192,7 @@ func SQLSetEnvUIntPtrAttr(environmentHandle SQLHENV, attribute SQLINTEGER, value
 
 	r := utils.CfuncEbcdic(getFunc(&dll, "SQLSetEnvAttr"), uintptr(environmentHandle), uintptr(attribute), uintptr(valuePtr), uintptr(stringLength))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/api_zos.go SQLSetEnvUIntPtrAttr() - EXIT")
 	return SQLRETURN(r)
 }
@@ -202,7 +202,7 @@ func SQLSetConnectUIntPtrAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, va
 
 	r := utils.CfuncEbcdic(getFunc(&dll, "SQLSetConnectAttr"), uintptr(connectionHandle), uintptr(attribute), uintptr(valuePtr), uintptr(stringLength))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/api_zos.go SQLSetConnectUIntPtrAttr() - EXIT")
 	return SQLRETURN(r)
 }

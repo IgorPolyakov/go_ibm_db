@@ -32,7 +32,7 @@ type Out struct {
 
 func newOut(hstmt api.SQLHSTMT, sqlOut *sql.Out, idx int) (*Out, error) {
 	trc.Trace1("sqlOut.go: newOut() - ENTRY")
-	trc.Trace1(fmt.Sprintf("idx=%d", idx))
+	trc.Trace1("idx=%d", idx)
 
 	var ctype, sqltype, decimalDigits, nullable, inputOutputType api.SQLSMALLINT
 	var parameterSize api.SQLULEN
@@ -453,7 +453,6 @@ func ConvertAssign(dest, src interface{}) error {
 
 func strconvErr(err error) error {
 	trc.Trace1("sqlOut.go: strconvErr()")
-	trc.Trace1(fmt.Sprintf("Error:%s", err))
 
 	ne := &strconv.NumError{}
 	if errors.As(err, &ne) {

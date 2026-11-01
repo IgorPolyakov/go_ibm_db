@@ -8,7 +8,6 @@ package api
 
 import (
 	"fmt"
-	"os"
 	"unsafe"
 
 	trc "github.com/ibmdb/go_ibm_db/log2"
@@ -16,24 +15,22 @@ import (
 )
 
 var dll utils.Dll
+var loadError error
 
 func init() {
-	var e error
-	e = dll.Open("DSNAO64C")
-	if e != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load DLL %s\n", "DSNAO64C")
-		os.Exit(1)
+	if err := dll.Open("DSNAO64C"); err != nil {
+		loadError = fmt.Errorf("load DB2 CLI DLL DSNAO64C: %w", err)
 	}
 }
 
 // SQLAllocHandle allocates an environment, connection or statement handle.
 func SQLAllocHandle(handleType SQLSMALLINT, inputHandle SQLHANDLE, outputHandle *SQLHANDLE) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLAllocHandle() - ENTRY")
-	trc.Trace1(fmt.Sprintf("handleType = %d", handleType))
+	trc.Trace1("handleType = %d", handleType)
 
 	r := utils.CfuncEbcdic(getFunc(&dll, "SQLAllocHandle"), uintptr(handleType), uintptr(inputHandle), uintptr(unsafe.Pointer(outputHandle)))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_zos.go SQLAllocHandle() - EXIT")
 	return SQLRETURN(r)
 }
@@ -41,7 +38,7 @@ func SQLAllocHandle(handleType SQLSMALLINT, inputHandle SQLHANDLE, outputHandle 
 // SQLBindCol binds a result-set column to an application buffer.
 func SQLBindCol(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, targetType SQLSMALLINT, targetValuePtr []byte, bufferLength SQLLEN, vallen *SQLLEN) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLBindCol() - ENTRY")
-	trc.Trace1(fmt.Sprintf("columnNumber=%d, targetType=%d, bufferLength=%d, vallen=%d", columnNumber, targetType, bufferLength, vallen))
+	trc.Trace1("columnNumber=%d, targetType=%d, bufferLength=%d", columnNumber, targetType, bufferLength)
 
 	r := utils.CfuncEbcdic(getFunc(&dll, "SQLBindCol"), uintptr(statementHandle), uintptr(columnNumber), uintptr(targetType), uintptr(unsafe.Pointer(&targetValuePtr[0])), uintptr(bufferLength), uintptr(unsafe.Pointer(vallen)))
 

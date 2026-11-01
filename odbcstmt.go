@@ -44,7 +44,6 @@ type ODBCStmt struct {
 // the connection.
 func (c *Conn) PrepareODBCStmt(query string) (*ODBCStmt, error) {
 	trc.Trace1("odbcstmt.go: PrepareODBCStmt() - ENTRY")
-	trc.Trace1("query=" + query)
 
 	var out api.SQLHANDLE
 	ret := api.SQLAllocHandle(api.SQL_HANDLE_STMT, api.SQLHANDLE(c.h), &out)

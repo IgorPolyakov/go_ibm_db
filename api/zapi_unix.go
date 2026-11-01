@@ -12,7 +12,6 @@
 package api
 
 import (
-	"fmt"
 	"unsafe"
 
 	trc "github.com/ibmdb/go_ibm_db/log2"
@@ -27,11 +26,11 @@ import "C"
 // SQLAllocHandle allocates an environment, connection or statement handle.
 func SQLAllocHandle(handleType SQLSMALLINT, inputHandle SQLHANDLE, outputHandle *SQLHANDLE) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLAllocHandle() - ENTRY")
-	trc.Trace1(fmt.Sprintf("handleType=%d", handleType))
+	trc.Trace1("handleType=%d", handleType)
 
 	r := C.SQLAllocHandle(C.SQLSMALLINT(handleType), C.SQLHANDLE(inputHandle), (*C.SQLHANDLE)(outputHandle))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLAllocHandle() - EXIT")
 	return SQLRETURN(r)
 }
@@ -39,11 +38,11 @@ func SQLAllocHandle(handleType SQLSMALLINT, inputHandle SQLHANDLE, outputHandle 
 // SQLBindCol binds a result-set column to an application buffer.
 func SQLBindCol(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, targetType SQLSMALLINT, targetValuePtr []byte, bufferLength SQLLEN, vallen *SQLLEN) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLBindCol() - ENTRY")
-	trc.Trace1(fmt.Sprintf("columnNumber=%d, targetType=%d, bufferLength=%d", columnNumber, targetType, bufferLength))
+	trc.Trace1("columnNumber=%d, targetType=%d, bufferLength=%d", columnNumber, targetType, bufferLength)
 
 	r := C.SQLBindCol(C.SQLHSTMT(statementHandle), C.SQLUSMALLINT(columnNumber), C.SQLSMALLINT(targetType), C.SQLPOINTER(&targetValuePtr[0]), C.SQLLEN(bufferLength), (*C.SQLLEN)(vallen))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLBindCol() - EXIT")
 	return SQLRETURN(r)
 }
@@ -51,11 +50,10 @@ func SQLBindCol(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, targetType 
 // SQLBindParameter binds a parameter marker to an application buffer.
 func SQLBindParameter(statementHandle SQLHSTMT, parameterNumber SQLUSMALLINT, inputOutputType SQLSMALLINT, valueType SQLSMALLINT, parameterType SQLSMALLINT, columnSize SQLULEN, decimalDigits SQLSMALLINT, parameterValue SQLPOINTER, bufferLength SQLLEN, ind *SQLLEN) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLBindParameter() - ENTRY")
-	trc.Trace1(fmt.Sprintf("parameterNumber=%d, inputOutputType=%d, valueType=%d, parameterType=%d, columnSize=%d, decimalDigits=%d, parameterValue=%x, bufferLength=%d", parameterNumber, inputOutputType, valueType, parameterType, columnSize, decimalDigits, parameterValue, bufferLength))
 
 	r := C.SQLBindParameter(C.SQLHSTMT(statementHandle), C.SQLUSMALLINT(parameterNumber), C.SQLSMALLINT(inputOutputType), C.SQLSMALLINT(valueType), C.SQLSMALLINT(parameterType), C.SQLULEN(columnSize), C.SQLSMALLINT(decimalDigits), C.SQLPOINTER(parameterValue), C.SQLLEN(bufferLength), (*C.SQLLEN)(ind))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLBindParameter() - EXIT")
 	return SQLRETURN(r)
 }
@@ -66,7 +64,7 @@ func SQLCancel(statementHandle SQLHSTMT) (ret SQLRETURN) {
 
 	r := C.SQLCancel(C.SQLHSTMT(statementHandle))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLCancel() - EXIT")
 	return SQLRETURN(r)
 }
@@ -77,7 +75,7 @@ func SQLCloseCursor(statementHandle SQLHSTMT) (ret SQLRETURN) {
 
 	r := C.SQLCloseCursor(C.SQLHSTMT(statementHandle))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLCloseCursor() - EXIT")
 	return SQLRETURN(r)
 }
@@ -85,11 +83,10 @@ func SQLCloseCursor(statementHandle SQLHSTMT) (ret SQLRETURN) {
 // SQLDescribeCol returns the description of a result-set column.
 func SQLDescribeCol(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, columnName *SQLWCHAR, bufferLength SQLSMALLINT, nameLengthPtr *SQLSMALLINT, dataTypePtr *SQLSMALLINT, columnSizePtr *SQLULEN, decimalDigitsPtr *SQLSMALLINT, nullablePtr *SQLSMALLINT) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLDescribeCol() - ENTRY")
-	trc.Trace1(fmt.Sprintf("columnNumber=%d, columnName=%v, bufferLength=%d, nameLengthPtr=0x%x, dataTypePtr=0x%x, columnSizePtr=0x%x, decimalDigitsPtr=%x, nullablePtr=0x%x", columnNumber, *columnName, bufferLength, nameLengthPtr, dataTypePtr, columnSizePtr, decimalDigitsPtr, nullablePtr))
 
 	r := C.SQLDescribeColW(C.SQLHSTMT(statementHandle), C.SQLUSMALLINT(columnNumber), (*C.SQLWCHAR)(unsafe.Pointer(columnName)), C.SQLSMALLINT(bufferLength), (*C.SQLSMALLINT)(nameLengthPtr), (*C.SQLSMALLINT)(dataTypePtr), (*C.SQLULEN)(columnSizePtr), (*C.SQLSMALLINT)(decimalDigitsPtr), (*C.SQLSMALLINT)(nullablePtr))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLDescribeCol() - EXIT")
 	return SQLRETURN(r)
 }
@@ -97,11 +94,10 @@ func SQLDescribeCol(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, columnN
 // SQLDescribeParam returns the description of a parameter marker.
 func SQLDescribeParam(statementHandle SQLHSTMT, parameterNumber SQLUSMALLINT, dataTypePtr *SQLSMALLINT, parameterSizePtr *SQLULEN, decimalDigitsPtr *SQLSMALLINT, nullablePtr *SQLSMALLINT) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLDescribeParam() - ENTRY")
-	trc.Trace1(fmt.Sprintf("parameterNumber=%d, dataTypePtr=%x, parameterSizePtr=%x, decimalDigitsPtr=%x, nullablePtr=%x", parameterNumber, dataTypePtr, parameterSizePtr, decimalDigitsPtr, nullablePtr))
 
 	r := C.SQLDescribeParam(C.SQLHSTMT(statementHandle), C.SQLUSMALLINT(parameterNumber), (*C.SQLSMALLINT)(dataTypePtr), (*C.SQLULEN)(parameterSizePtr), (*C.SQLSMALLINT)(decimalDigitsPtr), (*C.SQLSMALLINT)(nullablePtr))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLDescribeParam() - EXIT")
 	return SQLRETURN(r)
 }
@@ -112,7 +108,7 @@ func SQLDisconnect(connectionHandle SQLHDBC) (ret SQLRETURN) {
 
 	r := C.SQLDisconnect(C.SQLHDBC(connectionHandle))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLDisconnect() - EXIT")
 	return SQLRETURN(r)
 }
@@ -120,11 +116,10 @@ func SQLDisconnect(connectionHandle SQLHDBC) (ret SQLRETURN) {
 // SQLDriverConnect opens a connection from a connection string.
 func SQLDriverConnect(connectionHandle SQLHDBC, windowHandle SQLHWND, inConnectionString *SQLWCHAR, stringLength1 SQLSMALLINT, outConnectionString *SQLWCHAR, bufferLength SQLSMALLINT, stringLength2Ptr *SQLSMALLINT, driverCompletion SQLUSMALLINT) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLDriverConnect() - ENTRY")
-	trc.Trace1(fmt.Sprintf("inConnectionString=%v, stringLength1=%d, outConnectionString=%v, bufferLength=%d, stringLength2Ptr=%x, driverCompletion=%d", inConnectionString, stringLength1, outConnectionString, bufferLength, stringLength2Ptr, driverCompletion))
 
 	r := C.SQLDriverConnectW(C.SQLHDBC(connectionHandle), C.SQLHWND(windowHandle), (*C.SQLWCHAR)(unsafe.Pointer(inConnectionString)), C.SQLSMALLINT(stringLength1), (*C.SQLWCHAR)(unsafe.Pointer(outConnectionString)), C.SQLSMALLINT(bufferLength), (*C.SQLSMALLINT)(unsafe.Pointer(stringLength2Ptr)), C.SQLUSMALLINT(driverCompletion)) //nolint:govet // generated cgo bridge: reinterprets the API-compatible pointer types
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLDriverConnect() - EXIT")
 	return SQLRETURN(r)
 }
@@ -132,11 +127,11 @@ func SQLDriverConnect(connectionHandle SQLHDBC, windowHandle SQLHWND, inConnecti
 // SQLEndTran commits or rolls back a transaction.
 func SQLEndTran(handleType SQLSMALLINT, handle SQLHANDLE, completionType SQLSMALLINT) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLEndTran() - ENTRY")
-	trc.Trace1(fmt.Sprintf("handleType=%d, completionType=%d", handleType, completionType))
+	trc.Trace1("handleType=%d, completionType=%d", handleType, completionType)
 
 	r := C.SQLEndTran(C.SQLSMALLINT(handleType), C.SQLHANDLE(handle), C.SQLSMALLINT(completionType))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLEndTran() - EXIT")
 	return SQLRETURN(r)
 }
@@ -147,7 +142,7 @@ func SQLExecute(statementHandle SQLHSTMT) (ret SQLRETURN) {
 
 	r := C.SQLExecute(C.SQLHSTMT(statementHandle))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLExecute() - EXIT")
 	return SQLRETURN(r)
 }
@@ -158,7 +153,7 @@ func SQLFetch(statementHandle SQLHSTMT) (ret SQLRETURN) {
 
 	r := C.SQLFetch(C.SQLHSTMT(statementHandle))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLFetch() - EXIT")
 	return SQLRETURN(r)
 }
@@ -166,11 +161,11 @@ func SQLFetch(statementHandle SQLHSTMT) (ret SQLRETURN) {
 // SQLFreeHandle frees an environment, connection or statement handle.
 func SQLFreeHandle(handleType SQLSMALLINT, handle SQLHANDLE) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLFreeHandle() - ENTRY")
-	trc.Trace1(fmt.Sprintf("handleType=%d", handleType))
+	trc.Trace1("handleType=%d", handleType)
 
 	r := C.SQLFreeHandle(C.SQLSMALLINT(handleType), C.SQLHANDLE(handle))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLFreeHandle() - EXIT")
 	return SQLRETURN(r)
 }
@@ -178,11 +173,10 @@ func SQLFreeHandle(handleType SQLSMALLINT, handle SQLHANDLE) (ret SQLRETURN) {
 // SQLGetData retrieves data for a single unbound column.
 func SQLGetData(statementHandle SQLHSTMT, colOrParamNum SQLUSMALLINT, targetType SQLSMALLINT, targetValuePtr SQLPOINTER, bufferLength SQLLEN, vallen *SQLLEN) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLGetData() - ENTRY")
-	trc.Trace1(fmt.Sprintf("colOrParamNum=%d, targetType=%d, targetValuePtr=%x, bufferLength=%d, vallen=%p", colOrParamNum, targetType, targetValuePtr, bufferLength, vallen))
 
 	r := C.SQLGetData(C.SQLHSTMT(statementHandle), C.SQLUSMALLINT(colOrParamNum), C.SQLSMALLINT(targetType), C.SQLPOINTER(targetValuePtr), C.SQLLEN(bufferLength), (*C.SQLLEN)(vallen))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLGetData() - EXIT")
 	return SQLRETURN(r)
 }
@@ -190,11 +184,10 @@ func SQLGetData(statementHandle SQLHSTMT, colOrParamNum SQLUSMALLINT, targetType
 // SQLGetDiagRec returns one diagnostic record of a handle.
 func SQLGetDiagRec(handleType SQLSMALLINT, handle SQLHANDLE, recNumber SQLSMALLINT, sqlState *SQLWCHAR, nativeErrorPtr *SQLINTEGER, messageText *SQLWCHAR, bufferLength SQLSMALLINT, textLengthPtr *SQLSMALLINT) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLGetDiagRec() - ENTRY")
-	trc.Trace1(fmt.Sprintf("handleType=%d, recNumber=%d, sqlState=%v, nativeErrorPtr=%x, messageText=%v, bufferLength=%d, textLengthPtr=%x", handleType, recNumber, sqlState, nativeErrorPtr, messageText, bufferLength, textLengthPtr))
 
 	r := C.SQLGetDiagRecW(C.SQLSMALLINT(handleType), C.SQLHANDLE(handle), C.SQLSMALLINT(recNumber), (*C.SQLWCHAR)(unsafe.Pointer(sqlState)), (*C.SQLINTEGER)(nativeErrorPtr), (*C.SQLWCHAR)(unsafe.Pointer(messageText)), C.SQLSMALLINT(bufferLength), (*C.SQLSMALLINT)(textLengthPtr))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLGetDiagRec() - EXIT")
 	return SQLRETURN(r)
 }
@@ -202,11 +195,11 @@ func SQLGetDiagRec(handleType SQLSMALLINT, handle SQLHANDLE, recNumber SQLSMALLI
 // SQLGetInfo returns DBMS/driver information as a string or number.
 func SQLGetInfo(connectionHandle SQLHDBC, infoType SQLUSMALLINT, infoValuePtr SQLPOINTER, bufferLength SQLSMALLINT, stringLengthPtr *SQLSMALLINT) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLGetInfo() - ENTRY")
-	trc.Trace1(fmt.Sprintf("infoType=%d, bufferLength=%d", infoType, bufferLength))
+	trc.Trace1("infoType=%d, bufferLength=%d", infoType, bufferLength)
 
 	r := C.SQLGetInfo(C.SQLHDBC(connectionHandle), C.SQLUSMALLINT(infoType), C.SQLPOINTER(infoValuePtr), C.SQLSMALLINT(bufferLength), (*C.SQLSMALLINT)(stringLengthPtr))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLGetInfo() - EXIT")
 	return SQLRETURN(r)
 }
@@ -214,11 +207,10 @@ func SQLGetInfo(connectionHandle SQLHDBC, infoType SQLUSMALLINT, infoValuePtr SQ
 // SQLNumParams returns the number of parameter markers of a statement.
 func SQLNumParams(statementHandle SQLHSTMT, parameterCountPtr *SQLSMALLINT) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLNumParams() - ENTRY")
-	trc.Trace1(fmt.Sprintf("parameterCountPtr=0x%x", parameterCountPtr))
 
 	r := C.SQLNumParams(C.SQLHSTMT(statementHandle), (*C.SQLSMALLINT)(parameterCountPtr))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLNumParams() - EXIT")
 	return SQLRETURN(r)
 }
@@ -226,11 +218,10 @@ func SQLNumParams(statementHandle SQLHSTMT, parameterCountPtr *SQLSMALLINT) (ret
 // SQLNumResultCols returns the number of result-set columns of a statement.
 func SQLNumResultCols(statementHandle SQLHSTMT, columnCountPtr *SQLSMALLINT) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLNumResultCols() - ENTRY")
-	trc.Trace1(fmt.Sprintf("columnCountPtr=%x", columnCountPtr))
 
 	r := C.SQLNumResultCols(C.SQLHSTMT(statementHandle), (*C.SQLSMALLINT)(columnCountPtr))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLNumResultCols() - EXIT")
 	return SQLRETURN(r)
 }
@@ -238,11 +229,10 @@ func SQLNumResultCols(statementHandle SQLHSTMT, columnCountPtr *SQLSMALLINT) (re
 // SQLPrepare prepares an SQL string for execution.
 func SQLPrepare(statementHandle SQLHSTMT, statementText *SQLWCHAR, textLength SQLINTEGER) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLPrepare() - ENTRY")
-	trc.Trace1(fmt.Sprintf("statementText=%v, textLength=%d", statementText, textLength))
 
 	r := C.SQLPrepareW(C.SQLHSTMT(statementHandle), (*C.SQLWCHAR)(unsafe.Pointer(statementText)), C.SQLINTEGER(textLength))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLPrepare() - EXIT")
 	return SQLRETURN(r)
 }
@@ -253,7 +243,7 @@ func SQLRowCount(statementHandle SQLHSTMT, rowCountPtr *SQLLEN) (ret SQLRETURN) 
 
 	r := C.SQLRowCount(C.SQLHSTMT(statementHandle), (*C.SQLLEN)(rowCountPtr))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLRowCount() - EXIT")
 	return SQLRETURN(r)
 }
@@ -264,11 +254,10 @@ func SQLRowCount(statementHandle SQLHSTMT, rowCountPtr *SQLLEN) (ret SQLRETURN) 
 // compatibility only.
 func SQLSetEnvAttr(environmentHandle SQLHENV, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLSetEnvAttr() - ENTRY")
-	trc.Trace1(fmt.Sprintf("attribute=%d, valuePtr=0x%x, stringLength=%d", attribute, valuePtr, stringLength))
 
 	r := C.SQLSetEnvAttr(C.SQLHENV(environmentHandle), C.SQLINTEGER(attribute), C.SQLPOINTER(valuePtr), C.SQLINTEGER(stringLength))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLSetEnvAttr() - EXIT")
 	return SQLRETURN(r)
 }
@@ -279,11 +268,10 @@ func SQLSetEnvAttr(environmentHandle SQLHENV, attribute SQLINTEGER, valuePtr SQL
 // compatibility only.
 func SQLSetConnectAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLSetConnectAttr() - ENTRY")
-	trc.Trace1(fmt.Sprintf("attribute=%d, valuePtr=0x%x, stringLength=%d", attribute, valuePtr, stringLength))
 
 	r := C.SQLSetConnectAttrW(C.SQLHDBC(connectionHandle), C.SQLINTEGER(attribute), C.SQLPOINTER(valuePtr), C.SQLINTEGER(stringLength))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLSetConnectAttr() - EXIT")
 	return SQLRETURN(r)
 }
@@ -291,11 +279,10 @@ func SQLSetConnectAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, valuePtr 
 // SQLColAttribute returns a column descriptor field.
 func SQLColAttribute(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, fieldIdentifier SQLUSMALLINT, characterAttributePtr SQLPOINTER, bufferLength SQLSMALLINT, stringLengthPtr *SQLSMALLINT, numericAttributePtr SQLPOINTER) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLColAttribute() - ENTRY")
-	trc.Trace1(fmt.Sprintf("columnNumber=%d, fieldIdentifier=%d, characterAttributePtr=0x%x, bufferLength=%d, stringLengthPtr=0x%x, numericAttributePtr=0x%x", columnNumber, fieldIdentifier, characterAttributePtr, bufferLength, stringLengthPtr, numericAttributePtr))
 
 	r := C.SQLColAttribute(C.SQLHSTMT(statementHandle), C.SQLUSMALLINT(columnNumber), C.SQLUSMALLINT(fieldIdentifier), C.SQLPOINTER(characterAttributePtr), C.SQLSMALLINT(bufferLength), (*C.SQLSMALLINT)(unsafe.Pointer(stringLengthPtr)), C.SQLPOINTER(numericAttributePtr))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLColAttribute() - EXIT")
 	return SQLRETURN(r)
 }
@@ -306,7 +293,7 @@ func SQLMoreResults(statementHandle SQLHSTMT) (ret SQLRETURN) {
 
 	r := C.SQLMoreResults(C.SQLHSTMT(statementHandle))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLMoreResults() - EXIT")
 	return SQLRETURN(r)
 }
@@ -314,11 +301,11 @@ func SQLMoreResults(statementHandle SQLHSTMT) (ret SQLRETURN) {
 // SQLSetStmtAttr sets a statement attribute.
 func SQLSetStmtAttr(statementHandle SQLHSTMT, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLSetStmtAttr() - ENTRY")
-	trc.Trace1(fmt.Sprintf("attribute=%d, stringLength=%d", attribute, stringLength))
+	trc.Trace1("attribute=%d, stringLength=%d", attribute, stringLength)
 
 	r := C.SQLSetStmtAttrW(C.SQLHSTMT(statementHandle), C.SQLINTEGER(attribute), C.SQLPOINTER(valuePtr), C.SQLINTEGER(stringLength))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLSetStmtAttr() - EXIT")
 	return SQLRETURN(r)
 }
@@ -326,11 +313,10 @@ func SQLSetStmtAttr(statementHandle SQLHSTMT, attribute SQLINTEGER, valuePtr SQL
 // SQLCreateDb creates a database (DB2 CLI extension).
 func SQLCreateDb(connectionHandle SQLHDBC, dbnamePtr *SQLWCHAR, dbnameLen SQLINTEGER, codeSetPtr *SQLWCHAR, codeSetLen SQLINTEGER, modePtr *SQLWCHAR, modeLen SQLINTEGER) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLCreateDb() - ENTRY")
-	trc.Trace1(fmt.Sprintf("dbnamePtr=%x,dbnameLen=%d, codeSetPtr=%x, codeSetLen=%d, modePtr=%x, modeLen=%d", dbnamePtr, dbnameLen, codeSetPtr, codeSetLen, modePtr, modeLen))
 
 	r := C.SQLCreateDbW(C.SQLHDBC(connectionHandle), (*C.SQLWCHAR)(unsafe.Pointer(dbnamePtr)), C.SQLINTEGER(dbnameLen), (*C.SQLWCHAR)(unsafe.Pointer(codeSetPtr)), C.SQLINTEGER(codeSetLen), (*C.SQLWCHAR)(unsafe.Pointer(modePtr)), C.SQLINTEGER(modeLen))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLCreateDb() - EXIT")
 	return SQLRETURN(r)
 }
@@ -338,7 +324,6 @@ func SQLCreateDb(connectionHandle SQLHDBC, dbnamePtr *SQLWCHAR, dbnameLen SQLINT
 // SQLDropDb drops a database (DB2 CLI extension).
 func SQLDropDb(connectionHandle SQLHDBC, dbnamePtr *SQLWCHAR, dbnameLen SQLINTEGER) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLDropDb() - ENTRY")
-	trc.Trace1(fmt.Sprintf("dbnamePtr=%x, dbnameLen=%d", dbnamePtr, dbnameLen))
 
 	r := C.SQLDropDbW(C.SQLHDBC(connectionHandle), (*C.SQLWCHAR)(unsafe.Pointer(dbnamePtr)), C.SQLINTEGER(dbnameLen))
 
@@ -349,11 +334,10 @@ func SQLDropDb(connectionHandle SQLHDBC, dbnamePtr *SQLWCHAR, dbnameLen SQLINTEG
 // SQLExecDirect prepares and executes a statement in one call.
 func SQLExecDirect(statementHandle SQLHSTMT, statementText *SQLWCHAR, textLength SQLINTEGER) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLExecDirect() - ENTRY")
-	trc.Trace1(fmt.Sprintf("statementText=%v, textLength=%d", statementText, textLength))
 
 	r := C.SQLExecDirectW(C.SQLHSTMT(statementHandle), (*C.SQLWCHAR)(unsafe.Pointer(statementText)), C.SQLINTEGER(textLength))
 
-	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("r = %d", r)
 	trc.Trace1("api/zapi_unix.go SQLExecDirect() - EXIT")
 	return SQLRETURN(r)
 }

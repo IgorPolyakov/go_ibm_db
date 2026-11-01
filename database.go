@@ -1,7 +1,6 @@
 package go_ibm_db
 
 import (
-	"fmt"
 	"strings"
 	"unsafe"
 
@@ -13,7 +12,7 @@ import (
 // and create the database.
 func CreateDb(dbname string, connStr string, options ...string) (bool, error) {
 	trc.Trace1("database.go: CreateDb() - ENTRY")
-	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s", dbname, maskDSN(connStr)))
+	trc.Trace1("database.go: database operation")
 
 	if dbname == "" {
 		trc.Trace1("Error: Database name cannot be empty")
@@ -42,7 +41,7 @@ func CreateDb(dbname string, connStr string, options ...string) (bool, error) {
 
 func createDatabase(dbname string, connStr string, codeset string, mode string) (bool, error) {
 	trc.Trace1("database.go: createDatabase() - ENTRY")
-	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s, codeset=%s, mode=%s", dbname, maskDSN(connStr), codeset, mode))
+	trc.Trace1("database.go: createDatabase")
 	var out api.SQLHANDLE
 	in := api.SQLHANDLE(api.SQL_NULL_HANDLE)
 	bufDBN := api.StringToUTF16(dbname)
@@ -98,7 +97,7 @@ func createDatabase(dbname string, connStr string, codeset string, mode string) 
 // and drop the database.
 func DropDb(dbname string, connStr string) (bool, error) {
 	trc.Trace1("database.go: DropDb() - ENTRY")
-	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s", dbname, maskDSN(connStr)))
+	trc.Trace1("database.go: database operation")
 
 	if dbname == "" {
 		return false, errDatabaseNameEmpty
@@ -110,7 +109,7 @@ func DropDb(dbname string, connStr string) (bool, error) {
 
 func dropDatabase(dbname string, connStr string) (bool, error) {
 	trc.Trace1("database.go: dropDatabase() - ENTRY")
-	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s", dbname, maskDSN(connStr)))
+	trc.Trace1("database.go: database operation")
 
 	var out api.SQLHANDLE
 	in := api.SQLHANDLE(api.SQL_NULL_HANDLE)

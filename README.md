@@ -735,6 +735,7 @@ connStr = "DATABASE=database;HOSTNAME=hostname;PORT=port;PROTOCOL=TCPIP;UID=dbus
 # Logging:
 
 - You may enable logging in the go_ibm_db module to trace activities. Logging can be directed to be console or a specified file.
+- Tracing is disabled by default. File output is appended with owner-only permissions (0600). Connection strings, SQL text and parameter values are omitted.
 
 ```
 # Log on console:
