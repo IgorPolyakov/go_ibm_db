@@ -246,3 +246,13 @@ func SQLSetConnectUIntPtrAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, va
 	trc.Trace1("api/api_windows.go SQLSetConnectUIntPtrAttr() - EXIT")
 	return
 }
+
+// SQLSetStmtUIntPtrAttr sets a statement attribute whose value is an integer.
+func SQLSetStmtUIntPtrAttr(statementHandle SQLHSTMT, attribute SQLINTEGER, valuePtr uintptr, stringLength SQLINTEGER) (ret SQLRETURN) {
+	trc.Trace1("api/api_windows.go SQLSetStmtUIntPtrAttr() - ENTRY")
+	r0, _, _ := syscall.Syscall6(procSQLSetStmtAttr.Addr(), 4, uintptr(statementHandle), uintptr(attribute), valuePtr, uintptr(stringLength), 0, 0)
+	ret = SQLRETURN(r0)
+	trc.Trace1("ret = %d", ret)
+	trc.Trace1("api/api_windows.go SQLSetStmtUIntPtrAttr() - EXIT")
+	return
+}

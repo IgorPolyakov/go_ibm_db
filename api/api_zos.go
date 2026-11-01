@@ -206,3 +206,12 @@ func SQLSetConnectUIntPtrAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, va
 	trc.Trace1("api/api_zos.go SQLSetConnectUIntPtrAttr() - EXIT")
 	return SQLRETURN(r)
 }
+
+// SQLSetStmtUIntPtrAttr sets a statement attribute whose value is an integer.
+func SQLSetStmtUIntPtrAttr(statementHandle SQLHSTMT, attribute SQLINTEGER, valuePtr uintptr, stringLength SQLINTEGER) SQLRETURN {
+	trc.Trace1("api/api_zos.go SQLSetStmtUIntPtrAttr() - ENTRY")
+	r := utils.CfuncEbcdic(getFunc(&dll, "SQLSetStmtAttr"), uintptr(statementHandle), uintptr(attribute), valuePtr, uintptr(stringLength))
+	trc.Trace1("r = %d", r)
+	trc.Trace1("api/api_zos.go SQLSetStmtUIntPtrAttr() - EXIT")
+	return SQLRETURN(r)
+}

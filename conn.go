@@ -252,7 +252,7 @@ func (c *Conn) query(ctx context.Context, query string, args []driver.Value) (dr
 	if err != nil {
 		// release the statement handle on this error path too,
 		// otherwise the handle leaks
-		defer func() { _ = releaseHandle(h) }()
+		defer func() { _ = stmt.releaseHandle() }()
 		if cerr := ctx.Err(); cerr != nil {
 			return nil, cerr
 		}

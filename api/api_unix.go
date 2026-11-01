@@ -25,6 +25,10 @@ SQLRETURN sqlSetEnvUIntPtrAttr(SQLHENV environmentHandle, SQLINTEGER attribute, 
 SQLRETURN sqlSetConnectUIntPtrAttr(SQLHDBC connectionHandle, SQLINTEGER attribute, uintptr_t valuePtr, SQLINTEGER stringLength) {
 	return SQLSetConnectAttr(connectionHandle, attribute, (SQLPOINTER)valuePtr, stringLength);
 }
+
+SQLRETURN sqlSetStmtUIntPtrAttr(SQLHSTMT statementHandle, SQLINTEGER attribute, uintptr_t valuePtr, SQLINTEGER stringLength) {
+	return SQLSetStmtAttr(statementHandle, attribute, (SQLPOINTER)valuePtr, stringLength);
+}
 */
 import "C"
 
@@ -240,5 +244,14 @@ func SQLSetConnectUIntPtrAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, va
 
 	trc.Trace1("r = %d", r)
 	trc.Trace1("api/api_unix.go SQLSetConnectUIntPtrAttr() - EXIT")
+	return SQLRETURN(r)
+}
+
+// SQLSetStmtUIntPtrAttr sets a statement attribute whose value is an integer.
+func SQLSetStmtUIntPtrAttr(statementHandle SQLHSTMT, attribute SQLINTEGER, valuePtr uintptr, stringLength SQLINTEGER) SQLRETURN {
+	trc.Trace1("api/api_unix.go SQLSetStmtUIntPtrAttr() - ENTRY")
+	r := C.sqlSetStmtUIntPtrAttr(C.SQLHSTMT(statementHandle), C.SQLINTEGER(attribute), C.uintptr_t(valuePtr), C.SQLINTEGER(stringLength))
+	trc.Trace1("r = %d", r)
+	trc.Trace1("api/api_unix.go SQLSetStmtUIntPtrAttr() - EXIT")
 	return SQLRETURN(r)
 }

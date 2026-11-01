@@ -24,6 +24,8 @@
 
 ## Открытые проблемы
 
+- [x] **Высокий: `-race` немедленно падает с `checkptr` при `FETCHSIZE>1`.** *Исправлено 2026-11-01:* числовые атрибуты statement (`SQL_ATTR_PARAMSET_SIZE`, `SQL_ATTR_ROW_ARRAY_SIZE` и сброс) передаются через новую платформенную обёртку `api.SQLSetStmtUIntPtrAttr` (unix/windows/zos) — конвертация uintptr→SQLPOINTER выполняется в C, как у env/connect-атрибутов; `rowsFetched`/`rowStatus` для array-fetch закреплены `runtime.Pinner` на время жизни statement (unpin в `releaseHandle`). Проверено под `-race`: стресс 8 воркеров — 582 834 операции за 2 минуты, фаззинг — 23 225 execs, оба чисто; checkptr не воспроизводится.
+
 - [ ] **Гонка в тестах пула (GoHawk).** В `testdata/main.go:705` и `:753` горутины читают и меняют общий `flag` без синхронизации. Исправить оба сценария и проверить с `go test -race ./testdata` на тестовой БД.
 
 - [ ] **Транзакция без явного отката (GoHawk).** В `testdata/main.go:436` при ошибке `bg.Exec` функция `Commit` возвращается без `Rollback`. Добавить откат и проверить сценарий неудачного выполнения.

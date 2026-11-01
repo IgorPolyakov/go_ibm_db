@@ -189,7 +189,7 @@ func (r *Rows) Next(dest []driver.Value) error {
 		for {
 			if r.currentIndex >= r.rowsInBatch {
 				r.currentIndex = 0
-				r.os.rowsFetched = 0
+				*r.os.rowsFetched = 0
 				ret := api.SQLFetch(r.os.h)
 				if ret == api.SQL_NO_DATA {
 					return io.EOF
@@ -200,7 +200,7 @@ func (r *Rows) Next(dest []driver.Value) error {
 					}
 					return NewError("SQLFetch", r.os.h)
 				}
-				r.rowsInBatch = int(r.os.rowsFetched)
+				r.rowsInBatch = int(*r.os.rowsFetched)
 				if r.rowsInBatch == 0 {
 					return io.EOF
 				}

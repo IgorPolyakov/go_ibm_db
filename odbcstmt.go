@@ -34,10 +34,12 @@ type ODBCStmt struct {
 	cancelMu sync.Mutex
 	freed    bool
 	// bulk fetch support
-	fetchSize   int
-	rowsFetched api.SQLULEN
-	rowStatus   []api.SQLUSMALLINT
-	currentRow  int
+	fetchSize      int
+	rowsFetched    *api.SQLULEN
+	rowsFetchedPin runtime.Pinner
+	rowStatus      []api.SQLUSMALLINT
+	rowStatusPin   *runtime.Pinner
+	currentRow     int
 }
 
 // PrepareODBCStmt allocates a statement handle and prepares the query on
@@ -124,7 +126,12 @@ func (s *ODBCStmt) releaseHandle() error {
 
 	h := s.h
 	s.h = api.SQLHSTMT(api.SQL_NULL_HSTMT)
-	return releaseHandle(h)
+	err := releaseHandle(h)
+	if s.rowStatusPin != nil {
+		s.rowStatusPin.Unpin()
+	}
+	s.rowsFetchedPin.Unpin()
+	return err
 }
 
 // cancel aborts an in-flight operation on this statement. It is safe to
@@ -219,8 +226,8 @@ func (s *ODBCStmt) Exec(args []driver.Value) error {
 	if ArrayCheck == 1 {
 		paramSetSize = ArrayLength
 	}
-	ret := api.SQLSetStmtAttr(s.h, api.SQL_ATTR_PARAMSET_SIZE,
-		api.SQLPOINTER(uintptr(paramSetSize)), api.SQL_IS_INTEGER) //nolint:govet // ODBC integer attribute via pointer arg
+	ret := api.SQLSetStmtUIntPtrAttr(s.h, api.SQL_ATTR_PARAMSET_SIZE,
+		uintptr(paramSetSize), api.SQL_IS_INTEGER)
 	if IsError(ret) {
 		return NewError("SQLSetStmtAttr", s.h)
 	}
@@ -248,7 +255,9 @@ func (s *ODBCStmt) BindColumns() error {
 	trc.Trace1("odbcstmt.go: BindColumns() - ENTRY")
 
 	s.currentRow = 0
-	s.rowsFetched = 0
+	if s.rowsFetched != nil {
+		*s.rowsFetched = 0
+	}
 
 	// count columns
 	var n api.SQLSMALLINT
@@ -262,22 +271,34 @@ func (s *ODBCStmt) BindColumns() error {
 
 	// Set up block cursor if fetchSize > 1
 	if s.fetchSize > 1 {
-		ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROW_ARRAY_SIZE,
-			api.SQLPOINTER(uintptr(s.fetchSize)), api.SQL_IS_UINTEGER) //nolint:govet // ODBC integer attribute via pointer arg
+		if s.rowsFetched == nil {
+			s.rowsFetched = new(api.SQLULEN)
+			s.rowsFetchedPin.Pin(s.rowsFetched)
+		}
+		ret = api.SQLSetStmtUIntPtrAttr(s.h, api.SQL_ATTR_ROW_ARRAY_SIZE,
+			uintptr(s.fetchSize), api.SQL_IS_UINTEGER)
 		if IsError(ret) {
 			return NewError("SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE", s.h)
 		}
 		ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROWS_FETCHED_PTR,
-			api.SQLPOINTER(unsafe.Pointer(&s.rowsFetched)), 0)
+			api.SQLPOINTER(unsafe.Pointer(s.rowsFetched)), 0)
 		if IsError(ret) {
 			return NewError("SQLSetStmtAttr SQL_ATTR_ROWS_FETCHED_PTR", s.h)
 		}
-		s.rowStatus = make([]api.SQLUSMALLINT, s.fetchSize)
+		rowStatus := make([]api.SQLUSMALLINT, s.fetchSize)
+		rowStatusPin := new(runtime.Pinner)
+		rowStatusPin.Pin(&rowStatus[0])
 		ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROW_STATUS_PTR,
-			api.SQLPOINTER(unsafe.Pointer(&s.rowStatus[0])), 0)
+			api.SQLPOINTER(unsafe.Pointer(&rowStatus[0])), 0)
 		if IsError(ret) {
+			rowStatusPin.Unpin()
 			return NewError("SQLSetStmtAttr SQL_ATTR_ROW_STATUS_PTR", s.h)
 		}
+		if s.rowStatusPin != nil {
+			s.rowStatusPin.Unpin()
+		}
+		s.rowStatus = rowStatus
+		s.rowStatusPin = rowStatusPin
 	}
 
 	// fetch column descriptions
@@ -304,8 +325,8 @@ func (s *ODBCStmt) BindColumns() error {
 				// Fall back to single-row fetch if a column can't be array-bound
 				binding = false
 				s.fetchSize = 1
-				ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROW_ARRAY_SIZE,
-					api.SQLPOINTER(uintptr(1)), api.SQL_IS_UINTEGER) //nolint:govet // ODBC integer attribute via pointer arg
+				ret = api.SQLSetStmtUIntPtrAttr(s.h, api.SQL_ATTR_ROW_ARRAY_SIZE,
+					1, api.SQL_IS_UINTEGER)
 				if IsError(ret) {
 					return NewError("SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE reset", s.h)
 				}
