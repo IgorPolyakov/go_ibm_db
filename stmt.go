@@ -8,7 +8,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"sync"
 	"time"
 
 	"github.com/ibmdb/go_ibm_db/api"
@@ -20,7 +19,7 @@ type Stmt struct {
 	c     *Conn
 	query string
 	os    *ODBCStmt
-	mu    sync.Mutex
+	mu    mutex
 }
 
 // Prepare prepares a statement.

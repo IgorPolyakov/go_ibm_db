@@ -8,7 +8,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"runtime"
-	"sync"
 	"time"
 	"unsafe"
 
@@ -26,12 +25,12 @@ type ODBCStmt struct {
 	Parameters []Parameter
 	Cols       []Column
 	// locking/lifetime
-	mu         sync.Mutex
+	mu         mutex
 	usedByStmt bool
 	usedByRows bool
 	// cancellation guard: serializes SQLCancel (fired from a context
 	// watcher goroutine) with statement handle release
-	cancelMu sync.Mutex
+	cancelMu mutex
 	freed    bool
 	// bulk fetch support
 	fetchSize      int

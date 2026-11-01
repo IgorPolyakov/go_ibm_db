@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	trc "github.com/ibmdb/go_ibm_db/log2"
@@ -29,7 +28,7 @@ type Pool struct {
 	poolSize      int
 	maxLifetime   time.Duration
 	closed        bool
-	mu            sync.Mutex
+	mu            mutex
 }
 
 const (
