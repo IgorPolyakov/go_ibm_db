@@ -1,15 +1,15 @@
 module github.com/ibmdb/go_ibm_db/db2dialect/integration
 
-go 1.24.0
+go 1.27.3
 
 require (
 	github.com/ibmdb/go_ibm_db v0.0.0
 	github.com/ibmdb/go_ibm_db/db2dialect v0.0.0
-	github.com/uptrace/bun v1.2.18
+	github.com/uptrace/bun v1.3.0
 )
 
 require (
-	github.com/ibmruntimes/go-recordio/v2 v2.0.0-20240416213906-ae0ad556db70 // indirect
+	github.com/ibmruntimes/go-recordio/v2 v2.0.0-20261013170224-33e39ea31448 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect

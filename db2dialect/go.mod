@@ -2,7 +2,7 @@ module github.com/ibmdb/go_ibm_db/db2dialect
 
 go 1.24.0
 
-require github.com/uptrace/bun v1.2.18
+require github.com/uptrace/bun v1.3.0
 
 require (
 	github.com/jinzhu/inflection v1.0.0 // indirect

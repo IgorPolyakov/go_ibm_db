@@ -24,6 +24,14 @@
 
 ## Открытые проблемы
 
+- [ ] **Гонка в тестах пула (GoHawk).** В `testdata/main.go:705` и `:753` горутины читают и меняют общий `flag` без синхронизации. Исправить оба сценария и проверить с `go test -race ./testdata` на тестовой БД.
+
+- [ ] **Транзакция без явного отката (GoHawk).** В `testdata/main.go:436` при ошибке `bg.Exec` функция `Commit` возвращается без `Rollback`. Добавить откат и проверить сценарий неудачного выполнения.
+
+- [ ] **Предупреждения GoHawk об освобождении ресурсов.** Разобрать 13 предупреждений для `Query`/`Prepare` в `testdata/main.go`: проверить каждый путь возврата, исправить подтверждённые утечки `Rows`/`Stmt` и не считать ошибочный вызов созданным ресурсом.
+
+Прогон GoHawk v0.7.1: корневые пакеты, `db2dialect` и `db2dialect/integration` — без предупреждений; `testdata` — 16 предупреждений, перечисленных выше.
+
 - [x] **Ревью №3 (2026-11-01) — три дефекта + Go 1.27.3.** 1) Пустые массивы параметров паниковали (`d[0]`/`&b[0]` в пяти кейсах param.go) — добавлен guard с экспортированным `ErrEmptyArrayParameter`; интеграционный тест `TestEmptyArrayParameterErrors` (все 5 типов, ошибка вместо panic). 2) Пул преждевременно закрывал повторно использованное соединение: каждый Close запускал горутину-таймер, старый не отменялся — теперь `idleTimer` (`time.AfterFunc`) со сбросом при выдаче/возврате + `idleGen`-поколение против заблокированного на мьютексе колбэка; `Timeout` помечен Deprecated; тест `TestPoolReuseResetsIdleTimer`. 3) Wide-значения >2 МиБ паниковали (`*[1<<20]`-каст в column.go/sqlOut.go) — заменено на `unsafe.Slice` без границы; тест `TestWideColumnValueNoPanic`. Go: go.mod 1.22.1 → 1.27.3 (CI уже на 1.27.x); исправлены новые под 1.27 govet-замечания (`%p` для указателя в трейсе, `reflect.Pointer` вместо deprecated `reflect.Ptr`).
 
 - [x] **Ревью №2 локальной истории (2026-11-01) — три замечания.** 1) Windows-сборка сломалась в 93bf8a1: `nil` вместо `api.SQLPOINTER(...)` в rows.go ×6 (на Windows SQLPOINTER = uintptr) — конвертации восстановлены, плюс капа декомпрессии переведена на int64 (386); кросс-сборка `GOOS=windows {amd64,386}` проверяется. 2) Удалённые в 70efe27 `api.SQLSetEnvAttr`/`api.SQLSetConnectAttr`/`api.StringToUTF16Ptr`/`Pool.Display` восстановлены с маркерами `Deprecated:` — внешняя совместимость сохранена (deadcode снова их видит: осознанно). 3) Args-free `QueryContext` (SQLExecDirect) не отменялся — добавлен `Conn.QueryContext` (driver.QueryerContext) с `watchContext`; тест `TestQueryContextCancelNoArgs`: заблокированный LOCK TABLE запрос возвращается по дедлайну (502 мс при таймауте 500 мс), Informix после отмены lock-wait может вернуть committed-данные как success — тест допускает оба исхода.

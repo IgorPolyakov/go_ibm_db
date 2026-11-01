@@ -22,7 +22,7 @@ type dbmsInfoGetter interface {
 	GetInfo(uint16) (string, error)
 }
 
-// db2Name is intentionally outside Bun v1.2.18's built-in dialect range
+// db2Name is intentionally outside Bun's built-in dialect range
 // (Invalid through Oracle, values 0-5). Keep this value stable and re-check
 // it when upgrading Bun so a newly added built-in dialect cannot collide.
 const db2Name dialect.Name = 10
