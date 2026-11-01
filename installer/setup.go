@@ -69,8 +69,9 @@ func Unzipping(sourcefile string, targetDirectory string) {
 
 // maxDecompressedFileSize caps per-file extracted output so a corrupt or
 // hostile archive cannot exhaust the disk (decompression bomb). The
-// clidriver payloads are far below this limit.
-const maxDecompressedFileSize = 1 << 31 // 2 GiB
+// clidriver payloads are far below this limit. int64 keeps the constant
+// valid on 32-bit platforms.
+const maxDecompressedFileSize = int64(1) << 31 // 2 GiB
 
 func unzip(sourcefile string, targetDirectory string) error {
 	reader, err := zip.OpenReader("./../../" + sourcefile)

@@ -183,6 +183,24 @@ func (c *Conn) Close() error {
 // provided, and returns driver.ErrSkip otherwise.
 func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	trc.Trace1("conn.go: Query() - ENTRY")
+
+	return c.query(context.Background(), query, args)
+}
+
+// QueryContext implements driver.QueryerContext: like Query, but a
+// canceled or timed-out context aborts the blocking SQLExecDirect call
+// via SQLCancel.
+func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	trc.Trace1("conn.go: QueryContext() - ENTRY")
+
+	if len(args) > 0 {
+		// Not implemented for queries with parameters
+		return nil, driver.ErrSkip
+	}
+	return c.query(ctx, query, nil)
+}
+
+func (c *Conn) query(ctx context.Context, query string, args []driver.Value) (driver.Rows, error) {
 	trc.Trace1("query = " + query)
 
 	if len(args) > 0 {
@@ -198,6 +216,14 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	h := api.SQLHSTMT(out)
 	drv.updateHandleCount(api.SQL_HANDLE_STMT, 1)
 	b := api.StringToUTF16(query)
+	stmt := &ODBCStmt{
+		h:          h,
+		usedByRows: true,
+		fetchSize:  c.fetchSize,
+	}
+	// SQLExecDirect can block on the server: cancel it when ctx is done
+	stopWatch := watchContext(ctx, stmt)
+	defer stopWatch()
 	if runtime.GOOS == "zos" {
 		// On z/OS, StringToUTF16 does not append null terminator,
 		// so we must pass the exact byte length instead of SQL_NTS
@@ -209,6 +235,9 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	}
 	if IsError(ret) {
 		defer func() { _ = releaseHandle(h) }()
+		if cerr := ctx.Err(); cerr != nil {
+			return nil, cerr
+		}
 		return nil, NewError("SQLExecDirectW", h)
 	}
 	ps, err := ExtractParameters(h)
@@ -216,19 +245,18 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		defer func() { _ = releaseHandle(h) }()
 		return nil, err
 	}
-	os = &ODBCStmt{
-		h:          h,
-		Parameters: ps,
-		usedByRows: true,
-		fetchSize:  c.fetchSize,
-	}
+	stmt.Parameters = ps
+	os = stmt
 	err = os.BindColumns()
 	if err != nil {
 		// release the statement handle on this error path too,
 		// otherwise the handle leaks
 		defer func() { _ = releaseHandle(h) }()
+		if cerr := ctx.Err(); cerr != nil {
+			return nil, cerr
+		}
 		return nil, err
 	}
 	trc.Trace1("conn.go: Query() - EXIT")
-	return newRows(context.Background(), os), nil
+	return newRows(ctx, os), nil
 }

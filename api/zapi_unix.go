@@ -258,6 +258,36 @@ func SQLRowCount(statementHandle SQLHSTMT, rowCountPtr *SQLLEN) (ret SQLRETURN) 
 	return SQLRETURN(r)
 }
 
+// SQLSetEnvAttr sets an environment attribute.
+//
+// Deprecated: the driver uses SQLSetEnvUIntPtrAttr; kept for backward
+// compatibility only.
+func SQLSetEnvAttr(environmentHandle SQLHENV, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) (ret SQLRETURN) {
+	trc.Trace1("api/zapi_unix.go SQLSetEnvAttr() - ENTRY")
+	trc.Trace1(fmt.Sprintf("attribute=%d, valuePtr=0x%x, stringLength=%d", attribute, valuePtr, stringLength))
+
+	r := C.SQLSetEnvAttr(C.SQLHENV(environmentHandle), C.SQLINTEGER(attribute), C.SQLPOINTER(valuePtr), C.SQLINTEGER(stringLength))
+
+	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("api/zapi_unix.go SQLSetEnvAttr() - EXIT")
+	return SQLRETURN(r)
+}
+
+// SQLSetConnectAttr sets a connection attribute.
+//
+// Deprecated: the driver uses SQLSetConnectUIntPtrAttr; kept for backward
+// compatibility only.
+func SQLSetConnectAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) (ret SQLRETURN) {
+	trc.Trace1("api/zapi_unix.go SQLSetConnectAttr() - ENTRY")
+	trc.Trace1(fmt.Sprintf("attribute=%d, valuePtr=0x%x, stringLength=%d", attribute, valuePtr, stringLength))
+
+	r := C.SQLSetConnectAttrW(C.SQLHDBC(connectionHandle), C.SQLINTEGER(attribute), C.SQLPOINTER(valuePtr), C.SQLINTEGER(stringLength))
+
+	trc.Trace1(fmt.Sprintf("r = %d", r))
+	trc.Trace1("api/zapi_unix.go SQLSetConnectAttr() - EXIT")
+	return SQLRETURN(r)
+}
+
 // SQLColAttribute returns a column descriptor field.
 func SQLColAttribute(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, fieldIdentifier SQLUSMALLINT, characterAttributePtr SQLPOINTER, bufferLength SQLSMALLINT, stringLengthPtr *SQLSMALLINT, numericAttributePtr SQLPOINTER) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLColAttribute() - ENTRY")

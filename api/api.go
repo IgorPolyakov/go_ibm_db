@@ -104,6 +104,13 @@ func StringToUTF16(s string) []uint16 {
 	return utf16.Encode([]rune(s + "\u0000"))
 }
 
+// StringToUTF16Ptr returns a pointer to the UTF-16 encoding of the UTF-8
+// string s, with a terminating NUL added.
+//
+// Deprecated: no longer used by the driver and kept only for backward
+// compatibility; it will be removed in a future release.
+func StringToUTF16Ptr(s string) *uint16 { return &StringToUTF16(s)[0] }
+
 // ExtractUTF16Str uses unsafe package to copy UTF16 string to a byte slice.
 func ExtractUTF16Str(s []uint16) []byte {
 	trc.Trace1("api/api.go ExtractUTF16Str() - ENTRY")

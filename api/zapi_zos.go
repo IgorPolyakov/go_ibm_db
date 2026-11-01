@@ -229,6 +229,30 @@ func SQLRowCount(statementHandle SQLHSTMT, rowCountPtr *SQLLEN) SQLRETURN {
 	return SQLRETURN(r)
 }
 
+// SQLSetEnvAttr sets an environment attribute.
+//
+// Deprecated: kept for backward compatibility only.
+func SQLSetEnvAttr(environmentHandle SQLHENV, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) SQLRETURN {
+	trc.Trace1("api/zapi_zos.go SQLSetEnvAttr() - ENTRY")
+
+	r := utils.CfuncEbcdic(getFunc(&dll, "SQLSetEnvAttr"), uintptr(environmentHandle), uintptr(attribute), uintptr(valuePtr), uintptr(stringLength))
+
+	trc.Trace1("api/zapi_zos.go SQLSetEnvAttr() - EXIT")
+	return SQLRETURN(r)
+}
+
+// SQLSetConnectAttr sets a connection attribute.
+//
+// Deprecated: kept for backward compatibility only.
+func SQLSetConnectAttr(connectionHandle SQLHDBC, attribute SQLINTEGER, valuePtr SQLPOINTER, stringLength SQLINTEGER) SQLRETURN {
+	trc.Trace1("api/zapi_zos.go SQLSetConnectAttr() - ENTRY")
+
+	r := utils.CfuncEbcdic(getFunc(&dll, "SQLSetConnectAttrW"), uintptr(connectionHandle), uintptr(attribute), uintptr(valuePtr), uintptr(stringLength))
+
+	trc.Trace1("api/zapi_zos.go SQLSetConnectAttr() - EXIT")
+	return SQLRETURN(r)
+}
+
 // SQLColAttribute returns a column descriptor field.
 func SQLColAttribute(statementHandle SQLHSTMT, columnNumber SQLUSMALLINT, fieldIdentifier SQLUSMALLINT, characterAttributePtr SQLPOINTER, bufferLength SQLSMALLINT, stringLengthPtr *SQLSMALLINT, numericAttributePtr SQLPOINTER) SQLRETURN {
 	trc.Trace1("api/zapi_zos.go SQLColAttribute() - ENTRY")

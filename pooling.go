@@ -333,6 +333,15 @@ func (p *Pool) Release() {
 	trc.Trace1("pooling.go: Release() - EXIT")
 }
 
+// Display prints the pool maps and size for debugging.
+//
+// Deprecated: debug helper kept for backward compatibility only.
+func (p *Pool) Display() {
+	fmt.Println(p.availablePool)
+	fmt.Println(p.usedPool)
+	fmt.Println(p.poolSize)
+}
+
 // SetConnMaxLifetime sets the pooled connection lifetime in seconds.
 func (p *Pool) SetConnMaxLifetime(num int) {
 	trc.Trace1("pooling.go: SetConnMaxLifetime()")
