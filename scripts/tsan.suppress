@@ -1,0 +1,8 @@
+# TSan: libdb2 is an uninstrumented closed binary; races reported inside
+# its own code are neither actionable nor ours. Anything in our harness
+# (stress_c.c) or the libc/libpthread wrappers is real.
+race:libdb2
+# the CLI stack ships several uninstrumented libs (ICU and friends)
+race:libicclib
+race:libdb2*
+race:libdb2trace

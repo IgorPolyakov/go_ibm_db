@@ -1,0 +1,11 @@
+# Valgrind: known-benign conditions inside the closed CLI library.
+{
+   libdb2-internal-Param
+   Memcheck:Param
+   fun:*libdb2*
+}
+{
+   libdb2-internal-Cond
+   Memcheck:Cond
+   fun:*libdb2*
+}
