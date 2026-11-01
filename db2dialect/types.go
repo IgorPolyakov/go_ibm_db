@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 )
@@ -22,6 +23,8 @@ type SmallIntBool int32
 
 // Scan implements sql.Scanner interface to convert DB2 SMALLINT values to SmallIntBool.
 // Accepts int32, int64, int, float64, string, and byte slice representations.
+// The boolean contract is 0 or 1: other numeric values are rejected, and
+// anything outside the int32 range is rejected instead of wrapping.
 func (s *SmallIntBool) Scan(val interface{}) error {
 	if val == nil {
 		*s = 0
@@ -30,13 +33,25 @@ func (s *SmallIntBool) Scan(val interface{}) error {
 
 	switch v := val.(type) {
 	case int32:
+		if v != 0 && v != 1 {
+			return fmt.Errorf("value %d is not a valid SmallIntBool (want 0 or 1)", v)
+		}
 		*s = SmallIntBool(v)
 	case int64:
+		if v != 0 && v != 1 {
+			return fmt.Errorf("value %d is not a valid SmallIntBool (want 0 or 1)", v)
+		}
 		*s = SmallIntBool(v)
 	case int:
+		if v != 0 && v != 1 {
+			return fmt.Errorf("value %d is not a valid SmallIntBool (want 0 or 1)", v)
+		}
 		*s = SmallIntBool(v)
 	case float64:
-		*s = SmallIntBool(int32(v))
+		if v != 0 && v != 1 {
+			return fmt.Errorf("value %g is not a valid SmallIntBool (want 0 or 1)", v)
+		}
+		*s = SmallIntBool(v)
 	case string:
 		// Handle string representations ("0", "1", "true", "false", etc.)
 		val, err := strconv.ParseInt(v, 10, 32)
@@ -51,6 +66,9 @@ func (s *SmallIntBool) Scan(val interface{}) error {
 				return fmt.Errorf("cannot scan %q into SmallIntBool", v)
 			}
 		} else {
+			if val != 0 && val != 1 {
+				return fmt.Errorf("value %q is not a valid SmallIntBool (want 0 or 1)", v)
+			}
 			*s = SmallIntBool(val)
 		}
 	case []byte:
@@ -129,6 +147,23 @@ func (ns NullSmallIntBool) Bool() *bool {
 //	}
 type SmallInt int32
 
+// smallIntRange is the exact range of the SmallInt (int32-backed) type.
+// DB2 SMALLINT columns only hold -32768..32767, but the Go type is
+// int32 by design; values outside int32 cannot be represented and must
+// be rejected instead of silently wrapping around (2147483648 used to
+// become -2147483648).
+const (
+	smallIntMin = int64(math.MinInt32)
+	smallIntMax = int64(math.MaxInt32)
+)
+
+func smallIntFromInt64(v int64) (SmallInt, error) {
+	if v < smallIntMin || v > smallIntMax {
+		return 0, fmt.Errorf("value %d out of range for SmallInt [%d, %d]", v, smallIntMin, smallIntMax)
+	}
+	return SmallInt(v), nil
+}
+
 // Scan implements sql.Scanner interface for SmallInt.
 func (si *SmallInt) Scan(val interface{}) error {
 	if val == nil {
@@ -140,10 +175,21 @@ func (si *SmallInt) Scan(val interface{}) error {
 	case int32:
 		*si = SmallInt(v)
 	case int64:
-		*si = SmallInt(v)
+		converted, err := smallIntFromInt64(v)
+		if err != nil {
+			return fmt.Errorf("cannot scan into SmallInt: %w", err)
+		}
+		*si = converted
 	case int:
-		*si = SmallInt(v)
+		converted, err := smallIntFromInt64(int64(v))
+		if err != nil {
+			return fmt.Errorf("cannot scan into SmallInt: %w", err)
+		}
+		*si = converted
 	case float64:
+		if math.IsNaN(v) || math.IsInf(v, 0) || v < float64(smallIntMin) || v > float64(smallIntMax) {
+			return fmt.Errorf("value %g out of range for SmallInt [%d, %d]", v, smallIntMin, smallIntMax)
+		}
 		*si = SmallInt(int32(v))
 	case string:
 		val, err := strconv.ParseInt(v, 10, 32)

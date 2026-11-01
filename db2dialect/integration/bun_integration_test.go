@@ -283,10 +283,13 @@ func TestBun_Update(t *testing.T) {
 
 	// Verify update
 	var updated Employee
-	db.NewSelect().
+	selErr := db.NewSelect().
 		Model(&updated).
 		Where(`"email" = ?`, "john@example.com").
 		Scan(ctx)
+	if selErr != nil {
+		t.Fatalf("Failed to select updated record: %v", selErr)
+	}
 
 	if updated.Salary != 85000.00 {
 		t.Errorf("Expected salary 85000.00, got %f", updated.Salary)
@@ -667,7 +670,9 @@ func TestBun_DropTable(t *testing.T) {
 	ctx := context.Background()
 
 	// Create table
-	db.NewCreateTable().Model((*Product)(nil)).IfNotExists().Exec(ctx)
+	if _, err := db.NewCreateTable().Model((*Product)(nil)).IfNotExists().Exec(ctx); err != nil {
+		t.Fatalf("Failed to create table: %v", err)
+	}
 
 	// Drop table
 	_, err := db.NewDropTable().Model((*Product)(nil)).Exec(ctx)
