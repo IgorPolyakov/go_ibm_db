@@ -178,7 +178,7 @@ func SQLFreeHandle(handleType SQLSMALLINT, handle SQLHANDLE) (ret SQLRETURN) {
 // SQLGetData retrieves data for a single unbound column.
 func SQLGetData(statementHandle SQLHSTMT, colOrParamNum SQLUSMALLINT, targetType SQLSMALLINT, targetValuePtr SQLPOINTER, bufferLength SQLLEN, vallen *SQLLEN) (ret SQLRETURN) {
 	trc.Trace1("api/zapi_unix.go SQLGetData() - ENTRY")
-	trc.Trace1(fmt.Sprintf("colOrParamNum=%d, targetType=%d, targetValuePtr=%x, bufferLength=%d, vallen=%d", colOrParamNum, targetType, targetValuePtr, bufferLength, vallen))
+	trc.Trace1(fmt.Sprintf("colOrParamNum=%d, targetType=%d, targetValuePtr=%x, bufferLength=%d, vallen=%p", colOrParamNum, targetType, targetValuePtr, bufferLength, vallen))
 
 	r := C.SQLGetData(C.SQLHSTMT(statementHandle), C.SQLUSMALLINT(colOrParamNum), C.SQLSMALLINT(targetType), C.SQLPOINTER(targetValuePtr), C.SQLLEN(bufferLength), (*C.SQLLEN)(vallen))
 

@@ -15,9 +15,11 @@ import (
 // DBP wraps a *sql.DB with its connection string, lifetime and owning pool.
 type DBP struct {
 	*sql.DB
-	con  string
-	n    time.Duration
-	pool *Pool // owning pool; avoids relying on the shared global pool pointer
+	con       string
+	n         time.Duration
+	pool      *Pool       // owning pool; avoids relying on the shared global pool pointer
+	idleTimer *time.Timer // idle lifetime timer; guarded by pool.mu
+	idleGen   uint64      // invalidates stale timer callbacks; guarded by pool.mu
 }
 
 // Pool struct contains the about the pool like size, used and available connections
@@ -98,6 +100,13 @@ func (p *Pool) takeAvailableLocked(connStr string, lifetime time.Duration) *DBP 
 	}
 	p.usedPool[connStr] = append(p.usedPool[connStr], dbpo)
 	dbpo.SetConnMaxLifetime(lifetime)
+	// the connection is in use again: its pending idle timer must not
+	// close it while it is checked out
+	dbpo.idleGen++
+	if dbpo.idleTimer != nil {
+		dbpo.idleTimer.Stop()
+		dbpo.idleTimer = nil
+	}
 	return dbpo
 }
 
@@ -255,7 +264,15 @@ func (d *DBP) Close() {
 				p.availablePool[d.con] = append(p.availablePool[d.con], dbpc)
 				delete(p.usedPool, d.con)
 			}
-			go d.Timeout()
+			// reset the idle timer on every return: a stale timer from
+			// an earlier return must not close the reused connection
+			// before its new lifetime has elapsed
+			d.idleGen++
+			gen := d.idleGen
+			if d.idleTimer != nil {
+				d.idleTimer.Stop()
+			}
+			d.idleTimer = time.AfterFunc(d.n, func() { d.expire(gen) })
 		} else {
 			_ = d.DB.Close()
 		}
@@ -266,7 +283,49 @@ func (d *DBP) Close() {
 	trc.Trace1("pooling.go: Close() - EXIT")
 }
 
+// expire is the idle-timer callback: it removes the connection from the
+// pool and closes it, but only if the connection has been sitting idle in
+// the available pool since generation gen (reissue or re-return bumps the
+// generation and invalidates this callback).
+func (d *DBP) expire(gen uint64) {
+	trc.Trace1("pooling.go: expire() - ENTRY")
+
+	p := d.pool
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed || gen != d.idleGen {
+		return
+	}
+	valt, okt := p.availablePool[d.con]
+	if !okt {
+		return
+	}
+	for i, v := range valt {
+		if v != d {
+			continue
+		}
+		copy(valt[i:], valt[i+1:])
+		valt[len(valt)-1] = nil
+		valt = valt[:len(valt)-1]
+		if len(valt) == 0 {
+			delete(p.availablePool, d.con)
+		} else {
+			p.availablePool[d.con] = valt
+		}
+		d.idleTimer = nil
+		_ = d.DB.Close()
+		trc.Trace1("pooling.go: expire() - EXIT")
+		return
+	}
+}
+
 // Timeout closes the pooled connection once its lifetime expires.
+//
+// Deprecated: the pool now manages idle expiry internally; this manual
+// trigger is kept for backward compatibility.
 func (d *DBP) Timeout() {
 	trc.Trace1("pooling.go: Timeout() - ENTRY")
 

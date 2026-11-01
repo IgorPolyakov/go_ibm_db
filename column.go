@@ -253,13 +253,15 @@ func (c *BaseColumn) Value(buf []byte) (driver.Value, error) {
 		if p == nil {
 			return nil, nil //nolint:nilnil // nil driver.Value is the correct encoding of SQL NULL
 		}
-		s := (*[1 << 20]uint16)(p)[:len(buf)/2]
+		// unsafe.Slice instead of a *[1<<20] cast: values longer than
+		// 2 MiB used to panic on the fixed array bound
+		s := unsafe.Slice((*uint16)(p), len(buf)/2)
 		return utf16toutf8(s), nil
 	case api.SQL_C_DBCHAR:
 		if p == nil {
 			return nil, nil //nolint:nilnil // nil driver.Value is the correct encoding of SQL NULL
 		}
-		s := (*[1 << 20]uint8)(p)[:len(buf)]
+		s := unsafe.Slice((*uint8)(p), len(buf))
 		return dbclobToUTF8(s), nil
 	case api.SQL_C_TYPE_TIMESTAMP:
 		t := (*api.SQL_TIMESTAMP_STRUCT)(p)

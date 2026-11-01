@@ -36,6 +36,9 @@ var (
 	// ErrParameterArrayLength is returned when array parameter values have
 	// differing lengths.
 	ErrParameterArrayLength = errors.New("parameter's array value length should be same")
+	// ErrEmptyArrayParameter is returned when an array parameter is empty;
+	// at least one element is required to derive the binding type.
+	ErrEmptyArrayParameter = errors.New("empty array parameter")
 )
 
 // Internal sentinel errors used as %w wrap roots.

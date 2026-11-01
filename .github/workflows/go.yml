@@ -1,64 +1,184 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
 name: Go
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [master]
   pull_request:
-    branches: [ "master" ]
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      database_tests:
+        description: Run integration tests against configured databases
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: '1.27.x'
+  CLI_BASE_URL: https://public.dhe.ibm.com/ibmdl/export/pub/software/data/db2/drivers/odbc_cli
 
 jobs:
-
-  build:
+  linux:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Check formatting
+        run: |
+          files=$(gofmt -l $(git ls-files '*.go'))
+          if [ -n "$files" ]; then
+            echo "$files"
+            exit 1
+          fi
+      - name: Install clidriver
+        run: |
+          curl --fail --location --show-error --silent --retry 3 \
+            "$CLI_BASE_URL/linuxx64_odbc_cli.tar.gz" -o clidriver.tar.gz
+          tar -xzf clidriver.tar.gz
+          test -f clidriver/include/sqlcli1.h
+          echo "IBM_DB_HOME=$GITHUB_WORKSPACE/clidriver" >> "$GITHUB_ENV"
+          echo "CGO_CFLAGS=-I$GITHUB_WORKSPACE/clidriver/include" >> "$GITHUB_ENV"
+          echo "CGO_LDFLAGS=-L$GITHUB_WORKSPACE/clidriver/lib" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/clidriver/lib" >> "$GITHUB_ENV"
+      - name: Build and test
+        run: |
+          go build ./...
+          go test ./... -count=1
+          go test -c -o "$RUNNER_TEMP/testdata.test" ./testdata
+          (cd db2dialect && go test ./... -count=1)
+          (cd db2dialect/integration && go test -run '^$' ./...)
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.24.5'
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            arch: amd64
+            cli: macos64_odbc_cli.tar.gz
+          - runner: macos-15
+            arch: arm64
+            cli: macarm64_odbc_cli.tar.gz
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Install clidriver
+        run: |
+          test "$(go env GOARCH)" = "${{ matrix.arch }}"
+          curl --fail --location --show-error --silent --retry 3 \
+            "$CLI_BASE_URL/${{ matrix.cli }}" -o clidriver.tar.gz
+          tar -xzf clidriver.tar.gz
+          test -f clidriver/include/sqlcli1.h
+          echo "IBM_DB_HOME=$GITHUB_WORKSPACE/clidriver" >> "$GITHUB_ENV"
+          echo "CGO_CFLAGS=-I$GITHUB_WORKSPACE/clidriver/include" >> "$GITHUB_ENV"
+          echo "CGO_LDFLAGS=-L$GITHUB_WORKSPACE/clidriver/lib" >> "$GITHUB_ENV"
+          echo "DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/clidriver/lib" >> "$GITHUB_ENV"
+      - name: Build and test
+        run: |
+          go build ./...
+          go test ./... -count=1
+          go test -c -o "$RUNNER_TEMP/testdata.test" ./testdata
 
-    - name: Check gofmt
-      run: |
-          unformatted=$(gofmt -l .)
-          if [ -n "$unformatted" ]; then
-              echo "The following files are not gofmt'd:"
-              echo "$unformatted"
-              echo "Run 'gofmt -w .' to fix."
-              exit 1
+  linux-386:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install 32-bit clidriver
+        run: |
+          mkdir -p "$RUNNER_TEMP/ibm-cli"
+          curl --fail --location --show-error --silent --retry 3 \
+            "$CLI_BASE_URL/linuxia32_odbc_cli.tar.gz" -o "$RUNNER_TEMP/clidriver.tar.gz"
+          tar -xzf "$RUNNER_TEMP/clidriver.tar.gz" -C "$RUNNER_TEMP/ibm-cli"
+          test -f "$RUNNER_TEMP/ibm-cli/clidriver/include/sqlcli1.h"
+      - name: Build and test with 32-bit Go
+        run: |
+          docker run --rm --platform linux/386 \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -v "$RUNNER_TEMP/ibm-cli/clidriver:/clidriver" \
+            -w /src \
+            -e IBM_DB_HOME=/clidriver \
+            -e CGO_ENABLED=1 \
+            -e CGO_CFLAGS=-I/clidriver/include \
+            -e CGO_LDFLAGS=-L/clidriver/lib \
+            -e LD_LIBRARY_PATH=/clidriver/lib \
+            golang:1.27-bookworm sh -ec '
+              go build -buildvcs=false ./...
+              go test -buildvcs=false ./... -count=1
+            '
+
+  windows-cross:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ['386', amd64]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Cross compile
+        env:
+          GOOS: windows
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: '0'
+        run: |
+          go build ./...
+          go test -c -o "$RUNNER_TEMP/root.test.exe" .
+          # Existing testdata int literals overflow on 32-bit targets.
+          if [ "$GOARCH" = amd64 ]; then
+            go test -c -o "$RUNNER_TEMP/testdata.test.exe" ./testdata
           fi
 
-    - name: Install clidriver
-      run: |
-         pwd
-         go run installer/setup.go
-         pwd
-         ibm_db_home=/home/runner/work/go_ibm_db/clidriver
-         cgo_cflags=-I$ibm_db_home/include
-         cgo_ldflags=-L$ibm_db_home/lib
-         ld_library_path=$ibm_db_home/lib
-         echo "IBM_DB_HOME=$ibm_db_home" >> "$GITHUB_ENV"
-         echo "CGO_CFLAGS=$cgo_cflags" >> "$GITHUB_ENV"
-         echo "CGO_LDFLAGS=$cgo_ldflags" >> "$GITHUB_ENV"
-         echo "LD_LIBRARY_PATH=$ld_library_path" >> "$GITHUB_ENV"
-
-    - name: Test
-      env:
-          DB2_CONNSTR: ${{ secrets.DB2_CONNSTR }}
-      if: ${{ env.DB2_CONNSTR != '' && env.DB2_CONNSTR != null }}
-      run: |
-           pwd
-           go test ./...
-           cd db2dialect
-           go test .
-           cd integration
-           go test ./...
-           cd ../../testdata
-           echo "============TEST CASES ======"
-           go test -v
+  database-integration:
+    if: github.event_name == 'workflow_dispatch' && inputs.database_tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [LUW, ZOS, AS400, INFORMIX]
+    env:
+      DB2_TARGET_PLATFORM: ${{ matrix.target }}
+      DB2_CONNSTR_LUW: ${{ secrets.DB2_CONNSTR_LUW }}
+      DB2_CONNSTR_ZOS: ${{ secrets.DB2_CONNSTR_ZOS }}
+      DB2_CONNSTR_AS400: ${{ secrets.DB2_CONNSTR_AS400 }}
+      DB2_CONNSTR_INFORMIX: ${{ secrets.DB2_CONNSTR_INFORMIX }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Install clidriver
+        run: |
+          curl --fail --location --show-error --silent --retry 3 \
+            "$CLI_BASE_URL/linuxx64_odbc_cli.tar.gz" -o clidriver.tar.gz
+          tar -xzf clidriver.tar.gz
+          test -f clidriver/include/sqlcli1.h
+          echo "IBM_DB_HOME=$GITHUB_WORKSPACE/clidriver" >> "$GITHUB_ENV"
+          echo "CGO_CFLAGS=-I$GITHUB_WORKSPACE/clidriver/include" >> "$GITHUB_ENV"
+          echo "CGO_LDFLAGS=-L$GITHUB_WORKSPACE/clidriver/lib" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/clidriver/lib" >> "$GITHUB_ENV"
+      - name: Test ${{ matrix.target }}
+        run: |
+          secret_name="DB2_CONNSTR_$DB2_TARGET_PLATFORM"
+          DB2_CONNSTR="${!secret_name}"
+          if [ -z "$DB2_CONNSTR" ]; then
+            echo "Missing GitHub Actions secret: $secret_name" >&2
+            exit 1
+          fi
+          export DB2_CONNSTR
+          go test ./testdata -count=1
+          if [ "$DB2_TARGET_PLATFORM" != INFORMIX ]; then
+            (cd db2dialect/integration && go test ./... -count=1)
+          fi
