@@ -20,14 +20,14 @@ case "$MODE" in
   tsan)
     command -v clang >/dev/null || { echo 'clang not found (needed: TSan for C)' >&2; exit 2; }
     clang -O1 -g -fsanitize=thread -fno-omit-frame-pointer \
-      -I"$IBM_DB_HOME/include" stress/stress_c.c \
+      -I"$IBM_DB_HOME/include" scripts/csrc/stress_c.c \
       -L"$IBM_DB_HOME/lib" -ldb2 -o "$out"
     TSAN_OPTIONS="suppressions=$(dirname "$0")/tsan.suppress" \
       LD_LIBRARY_PATH="$IBM_DB_HOME/lib:$IBM_DB_HOME/lib/odbc" "$out" "$DSN" "$THREADS" "$SECONDS_"
     ;;
   valgrind)
     command -v valgrind >/dev/null || { echo 'valgrind not found' >&2; exit 2; }
-    gcc -O1 -g -I"$IBM_DB_HOME/include" stress/stress_c.c \
+    gcc -O1 -g -I"$IBM_DB_HOME/include" scripts/csrc/stress_c.c \
       -L"$IBM_DB_HOME/lib" -ldb2 -o "$out"
     LD_LIBRARY_PATH="$IBM_DB_HOME/lib:$IBM_DB_HOME/lib/odbc" \
       valgrind --error-exitcode=42 --leak-check=full --errors-for-leak-kinds=definite \
@@ -35,7 +35,7 @@ case "$MODE" in
       "$out" "$DSN" "$THREADS" "$SECONDS_"
     ;;
   plain)
-    gcc -O2 -I"$IBM_DB_HOME/include" stress/stress_c.c -L"$IBM_DB_HOME/lib" -ldb2 -o "$out"
+    gcc -O2 -I"$IBM_DB_HOME/include" scripts/csrc/stress_c.c -L"$IBM_DB_HOME/lib" -ldb2 -o "$out"
     LD_LIBRARY_PATH="$IBM_DB_HOME/lib:$IBM_DB_HOME/lib/odbc" "$out" "$DSN" "$THREADS" "$SECONDS_"
     ;;
   *) echo 'usage: scripts/stress-c.sh [tsan|valgrind|plain]' >&2; exit 2 ;;
