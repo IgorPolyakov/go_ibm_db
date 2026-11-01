@@ -7,7 +7,6 @@ package go_ibm_db
 import (
 	"context"
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"strconv"
 
@@ -34,7 +33,7 @@ func (r *Result) LastInsertId() (int64, error) {
 
 	stmt, ok := s.(*Stmt)
 	if !ok {
-		return 0, fmt.Errorf("unexpected statement type %T", s)
+		return 0, fmt.Errorf("%w: %T", errUnexpectedStatementType, s)
 	}
 	rows, err := stmt.query1(context.Background(), nil)
 	if err != nil {
@@ -67,7 +66,7 @@ func (r *Result) LastInsertId() (int64, error) {
 		case nil:
 			// no identity value available (e.g. non-identity insert)
 		default:
-			return 0, errors.New("unexpected type")
+			return 0, errUnexpectedType
 		}
 	}
 	trc.Trace1(fmt.Sprintf("LastInsertid = %d", lastInsertID))

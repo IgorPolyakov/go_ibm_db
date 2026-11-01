@@ -1,7 +1,6 @@
 package go_ibm_db
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"unsafe"
@@ -19,7 +18,7 @@ func CreateDb(dbname string, connStr string, options ...string) (bool, error) {
 	if dbname == "" {
 		trc.Trace1("Error: Database name cannot be empty")
 		trc.Trace1("database.go: CreateDb() - EXIT")
-		return false, errors.New("database name cannot be empty")
+		return false, errDatabaseNameEmpty
 	}
 	var codeset, mode string
 	count := len(options)
@@ -32,7 +31,7 @@ func CreateDb(dbname string, connStr string, options ...string) (bool, error) {
 			case "mode":
 				mode = opt[1]
 			default:
-				return false, errors.New("not a valid parameter")
+				return false, errInvalidParameter
 			}
 		}
 	}
@@ -63,21 +62,27 @@ func createDatabase(dbname string, connStr string, codeset string, mode string) 
 	}
 	hdbc := api.SQLHDBC(out)
 	ret = api.SQLDriverConnect(hdbc, 0,
-		(*api.SQLWCHAR)(unsafe.Pointer(&bufCS[0])), api.SQLSMALLINT(len(bufCS)), //nolint:gosec // G115: bounded name/string length
+		(*api.SQLWCHAR)(unsafe.Pointer(&bufCS[0])), api.SQLSMALLINT(len(bufCS)), //nolint:gosec // bounded length
 		nil, 0, nil, api.SQL_DRIVER_NOPROMPT)
 	if IsError(ret) {
 		defer func() { _ = releaseHandle(hdbc) }()
 		return false, NewError("SQLDriverConnect", hdbc)
 	}
+	dbName := (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0]))
+	dbNameLen := api.SQLINTEGER(len(bufDBN)) //nolint:gosec // bounded name
+	codesetPtr := (*api.SQLWCHAR)(unsafe.Pointer(&bufC[0]))
+	codesetLen := api.SQLINTEGER(len(bufC)) //nolint:gosec // bounded name
+	modePtr := (*api.SQLWCHAR)(unsafe.Pointer(&bufM[0]))
+	modeLen := api.SQLINTEGER(len(bufM)) //nolint:gosec // bounded name
 	switch {
 	case codeset == "" && mode == "":
-		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), nil, 0, nil, 0) //nolint:gosec // G115: bounded name/string length
+		ret = api.SQLCreateDb(hdbc, dbName, dbNameLen, nil, 0, nil, 0)
 	case codeset == "":
-		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), nil, 0, (*api.SQLWCHAR)(unsafe.Pointer(&bufM[0])), api.SQLINTEGER(len(bufM))) //nolint:gosec // G115: bounded name/string length
+		ret = api.SQLCreateDb(hdbc, dbName, dbNameLen, nil, 0, modePtr, modeLen)
 	case mode == "":
-		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), (*api.SQLWCHAR)(unsafe.Pointer(&bufC[0])), api.SQLINTEGER(len(bufC)), nil, 0) //nolint:gosec // G115: bounded name/string length
+		ret = api.SQLCreateDb(hdbc, dbName, dbNameLen, codesetPtr, codesetLen, nil, 0)
 	default:
-		ret = api.SQLCreateDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN)), (*api.SQLWCHAR)(unsafe.Pointer(&bufC[0])), api.SQLINTEGER(len(bufC)), (*api.SQLWCHAR)(unsafe.Pointer(&bufM[0])), api.SQLINTEGER(len(bufM))) //nolint:gosec // G115: bounded name/string length
+		ret = api.SQLCreateDb(hdbc, dbName, dbNameLen, codesetPtr, codesetLen, modePtr, modeLen)
 	}
 	if IsError(ret) {
 		defer func() { _ = releaseHandle(hdbc) }()
@@ -96,7 +101,7 @@ func DropDb(dbname string, connStr string) (bool, error) {
 	trc.Trace1(fmt.Sprintf("dbname=%s, connStr=%s", dbname, maskDSN(connStr)))
 
 	if dbname == "" {
-		return false, errors.New("database name cannot be empty")
+		return false, errDatabaseNameEmpty
 	}
 	connStr = connStr + ";" + "ATTACH=true"
 	trc.Trace1("database.go: DropDb() - EXIT")
@@ -124,13 +129,14 @@ func dropDatabase(dbname string, connStr string) (bool, error) {
 	}
 	hdbc := api.SQLHDBC(out)
 	ret = api.SQLDriverConnect(hdbc, 0,
-		(*api.SQLWCHAR)(unsafe.Pointer(&bufCS[0])), api.SQLSMALLINT(len(bufCS)), //nolint:gosec // G115: bounded name/string length
+		(*api.SQLWCHAR)(unsafe.Pointer(&bufCS[0])), api.SQLSMALLINT(len(bufCS)), //nolint:gosec // bounded length
 		nil, 0, nil, api.SQL_DRIVER_NOPROMPT)
 	if IsError(ret) {
 		defer func() { _ = releaseHandle(hdbc) }()
 		return false, NewError("SQLDriverConnect", hdbc)
 	}
-	ret = api.SQLDropDb(hdbc, (*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN))) //nolint:gosec // G115: bounded name/string length
+	ret = api.SQLDropDb(hdbc,
+		(*api.SQLWCHAR)(unsafe.Pointer(&bufDBN[0])), api.SQLINTEGER(len(bufDBN))) //nolint:gosec // bounded name
 	if IsError(ret) {
 		defer func() { _ = releaseHandle(hdbc) }()
 		return false, NewError("SQLDropDb", hdbc)

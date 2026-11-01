@@ -29,6 +29,20 @@ const (
 	sqlLongVarGraphic = -97
 )
 
+// Sizes and limits used when describing and buffering columns.
+const (
+	// maxColumnBufferSize mirrors math.MaxInt32 (SQLLEN limit).
+	maxColumnBufferSize = 2147483647
+	// maxXMLBufferSize is the buffer cap for SQL_XML columns (30 MiB).
+	maxXMLBufferSize = 31457280
+	// columnNameBufferSize is the UTF-16 buffer for one column name.
+	columnNameBufferSize = 150
+	// getDataChunkSize is the initial SQLGetData chunk for long values.
+	getDataChunkSize = 1024
+	// secondsPerHour converts a TIMESTAMP_STRUCT timezone offset to seconds.
+	secondsPerHour = 3600
+)
+
 // IsNull reports whether the column value is SQL NULL.
 func (l *BufferLen) IsNull() bool {
 	trc.Trace1("column.go: IsNull()")
@@ -63,7 +77,7 @@ func (l *BufferLen) GetData(h api.SQLHSTMT, idx int, ctype api.SQLSMALLINT, buf 
 func (l *BufferLen) Bind(h api.SQLHSTMT, idx int, ctype api.SQLSMALLINT, buf []byte) api.SQLRETURN {
 	trc.Trace1("column.go: Bind()- ENTRY")
 
-	if len(buf) <= 2147483647 {
+	if len(buf) <= maxColumnBufferSize {
 		return api.SQLBindCol(h, odbcNum(idx), ctype,
 			buf, api.SQLLEN(len(buf)), //nolint:gosec // len(buf) is bounded to MaxInt32 by the check above
 			(*api.SQLLEN)(l))
@@ -84,7 +98,9 @@ type Column interface {
 	ValueAtRow(h api.SQLHSTMT, idx int, row int) (driver.Value, error)
 }
 
-func describeColumn(h api.SQLHSTMT, idx int, namebuf []uint16) (namelen int, sqltype api.SQLSMALLINT, size api.SQLULEN, ret api.SQLRETURN) {
+func describeColumn(h api.SQLHSTMT, idx int, namebuf []uint16) (
+	namelen int, sqltype api.SQLSMALLINT, size api.SQLULEN, ret api.SQLRETURN,
+) {
 	trc.Trace1("column.go: describeColumn() - ENTRY")
 
 	var l, decimal, nullable api.SQLSMALLINT
@@ -101,7 +117,7 @@ func describeColumn(h api.SQLHSTMT, idx int, namebuf []uint16) (namelen int, sql
 func NewColumn(h api.SQLHSTMT, idx int) (Column, error) {
 	trc.Trace1("column.go: NewColumn() - ENTRY")
 
-	namebuf := make([]uint16, 150)
+	namebuf := make([]uint16, columnNameBufferSize)
 	namelen, sqltype, size, ret := describeColumn(h, idx, namebuf)
 	if ret == api.SQL_SUCCESS_WITH_INFO && namelen > len(namebuf) {
 		// try again with bigger buffer
@@ -113,7 +129,7 @@ func NewColumn(h api.SQLHSTMT, idx int) (Column, error) {
 	}
 	if namelen > len(namebuf) {
 		// still complaining about buffer size
-		return nil, errors.New("failed to allocate column name buffer")
+		return nil, errColumnNameBuffer
 	}
 	b := &BaseColumn{
 		name:  api.UTF16ToString(namebuf[:namelen]),
@@ -164,9 +180,9 @@ func NewColumn(h api.SQLHSTMT, idx int) (Column, error) {
 		}
 		return NewVariableWidthColumn(b, api.SQL_C_DBCHAR, size), nil
 	case api.SQL_XML:
-		return NewVariableWidthColumn(b, api.SQL_C_BINARY, 31457280), nil
+		return NewVariableWidthColumn(b, api.SQL_C_BINARY, maxXMLBufferSize), nil
 	default:
-		return nil, fmt.Errorf("unsupported column type %d", sqltype)
+		return nil, fmt.Errorf("%w: %d", errUnsupportedColumnType, sqltype)
 	}
 }
 
@@ -253,7 +269,7 @@ func (c *BaseColumn) Value(buf []byte) (driver.Value, error) {
 		return r, nil
 	case api.SQL_C_TYPE_TIMESTAMP_EXT_TZ:
 		t := (*api.SQL_TIMESTAMP_STRUCT_EXT_TZ)(p)
-		offset := int(t.TimezoneHour)*3600 + int(t.TimezoneMinute)*60
+		offset := int(t.TimezoneHour)*secondsPerHour + int(t.TimezoneMinute)*60
 		r := time.Date(int(t.Year), time.Month(t.Month), int(t.Day),
 			int(t.Hour), int(t.Minute), int(t.Second), int(t.Fraction),
 			time.FixedZone("", offset))
@@ -275,7 +291,7 @@ func (c *BaseColumn) Value(buf []byte) (driver.Value, error) {
 	case api.SQL_C_BINARY:
 		return buf, nil
 	}
-	return nil, fmt.Errorf("unsupported column ctype %d", c.CType)
+	return nil, fmt.Errorf("%w: %d", errUnsupportedColumnCType, c.CType)
 }
 
 // BindableColumn allows access to columns that can have their buffers
@@ -336,7 +352,7 @@ func NewVariableWidthColumn(b *BaseColumn, ctype api.SQLSMALLINT, colWidth api.S
 	case api.SQL_C_BINARY:
 		// nothing to do
 	default:
-		panic(fmt.Errorf("do not know how wide column of ctype %d is", ctype))
+		panic(fmt.Errorf("%w: %d", errUnknownColumnWidth, ctype))
 	}
 	c := NewBindableColumn(b, ctype, l)
 	c.IsVariableWidth = true
@@ -374,7 +390,7 @@ func (c *BindableColumn) Value(h api.SQLHSTMT, idx int) (driver.Value, error) {
 		return nil, nil //nolint:nilnil // nil driver.Value is the correct encoding of SQL NULL
 	}
 	if !c.IsVariableWidth && int(c.Len) != c.Size {
-		panic(fmt.Errorf("wrong column #%d length %d returned, %d expected", idx, c.Len, c.Size))
+		panic(fmt.Errorf("%w #%d: %d returned, %d expected", errWrongColumnLength, idx, c.Len, c.Size))
 	}
 	// check buffer len
 	bufferLen := int(c.Len)
@@ -405,18 +421,18 @@ func (c *BindableColumn) BindArray(h api.SQLHSTMT, idx int, fetchSize int) (bool
 }
 
 // ValueAtRow extracts the value for a specific row within a bulk-fetched block.
-func (c *BindableColumn) ValueAtRow(_ api.SQLHSTMT, idx int, row int) (driver.Value, error) { //nolint:revive // Column interface
+func (c *BindableColumn) ValueAtRow(_ api.SQLHSTMT, idx int, row int) (driver.Value, error) {
 	trc.Trace1("column.go: ValueAtRow() - ENTRY")
 
 	if row >= c.fetchSize {
-		return nil, fmt.Errorf("row %d out of range (fetchSize=%d)", row, c.fetchSize)
+		return nil, fmt.Errorf("%w %d (fetchSize=%d)", errRowOutOfRange, row, c.fetchSize)
 	}
 	if c.Lens[row].IsNull() {
 		return nil, nil //nolint:nilnil // nil driver.Value is the correct encoding of SQL NULL
 	}
 	offset := row * c.Size
 	if !c.IsVariableWidth && int(c.Lens[row]) != c.Size {
-		panic(fmt.Errorf("wrong column #%d row %d length %d returned, %d expected", idx, row, c.Lens[row], c.Size))
+		panic(fmt.Errorf("%w #%d row %d: %d returned, %d expected", errWrongColumnLength, idx, row, c.Lens[row], c.Size))
 	}
 	bufferLen := int(c.Lens[row])
 	if bufferLen > c.Size {
@@ -437,11 +453,11 @@ func (c *NonBindableColumn) Bind(_ api.SQLHSTMT, idx int) (bool, error) { //noli
 	return false, nil
 }
 
-func (c *NonBindableColumn) BindArray(_ api.SQLHSTMT, idx int, _ int) (bool, error) { //nolint:revive // Column interface
+func (c *NonBindableColumn) BindArray(_ api.SQLHSTMT, idx int, _ int) (bool, error) { //nolint:revive
 	return false, nil
 }
 
-func (c *NonBindableColumn) ValueAtRow(h api.SQLHSTMT, idx int, _ int) (driver.Value, error) { //nolint:revive // Column interface
+func (c *NonBindableColumn) ValueAtRow(h api.SQLHSTMT, idx int, _ int) (driver.Value, error) { //nolint:revive
 	return c.Value(h, idx)
 }
 
@@ -449,7 +465,7 @@ func (c *NonBindableColumn) ValueAtRow(h api.SQLHSTMT, idx int, _ int) (driver.V
 func (c *NonBindableColumn) Value(h api.SQLHSTMT, idx int) (driver.Value, error) {
 	var l BufferLen
 	var total []byte
-	b := make([]byte, 1024)
+	b := make([]byte, getDataChunkSize)
 	trc.Trace1("column.go: Value() - ENTRY")
 loop:
 	for {

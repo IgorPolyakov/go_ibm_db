@@ -77,7 +77,7 @@ func newOut(hstmt api.SQLHSTMT, sqlOut *sql.Out, idx int) (*Out, error) {
 			data = make([]byte, (parameterSize*2)+2)
 			if len(b) > len(data) {
 				return nil,
-					fmt.Errorf("parameterSize:index %d INOUT string size is greater than the allocated OUT buffer size", idx+1)
+					fmt.Errorf("%w: index %d", errInOutBufferSize, idx+1)
 			}
 			copy(data, b)
 			buflen = api.SQLLEN(len(data)) //nolint:gosec // len(data) is the bounded buffer size
@@ -127,7 +127,7 @@ func newOut(hstmt api.SQLHSTMT, sqlOut *sql.Out, idx int) (*Out, error) {
 			plen = &buflen
 			parameterSize = api.SQLULEN(len(data)) //nolint:gosec // len(data) is the size of the extracted struct
 		default:
-			panic(fmt.Errorf("unsupported sql.Out.Dest type %T", d))
+			panic(fmt.Errorf("%w: %T", errUnsupportedOutDestType, d))
 		}
 	} else {
 		inputOutputType = api.SQL_PARAM_OUTPUT
@@ -216,7 +216,7 @@ func (o *Out) Value() (driver.Value, error) {
 		return buf, nil
 	}
 	trc.Trace1("sqlOut.go: Value() - EXIT")
-	return nil, fmt.Errorf("unsupported ctype %d for OUT parameter", o.ctype)
+	return nil, fmt.Errorf("%w: %d", errUnsupportedOutCType, o.ctype)
 }
 
 // ConvertAssign function copies the database data to Dest field in stored procedure.
@@ -224,16 +224,16 @@ func (o *Out) ConvertAssign() error {
 	trc.Trace1("sqlOut.go: ConvertAssign() - ENTRY")
 
 	if o.sqlOut == nil {
-		return fmt.Errorf("sql.Out is nil at OUT param index %d", o.idx)
+		return fmt.Errorf("%w %d", errNilOutParam, o.idx)
 	}
 
 	if o.sqlOut.Dest == nil {
-		return fmt.Errorf("variable Dest is nil at OUT param index %d", o.idx)
+		return fmt.Errorf("%w %d", errNilDest, o.idx)
 	}
 
 	destInfo := reflect.ValueOf(o.sqlOut.Dest)
 	if destInfo.Kind() != reflect.Ptr {
-		return fmt.Errorf("variable Dest at OUT param index %d is not a pointer", o.idx)
+		return fmt.Errorf("%w at OUT param index %d", errDestNotPointer, o.idx)
 	}
 
 	dv, err := o.Value()
@@ -253,19 +253,19 @@ func ConvertAssign(dest, src interface{}) error {
 		switch d := dest.(type) {
 		case *string:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = s
 			return nil
 		case *[]byte:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = []byte(s)
 			return nil
 		case *sql.RawBytes:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = append((*d)[:0], s...)
 			return nil
@@ -274,25 +274,25 @@ func ConvertAssign(dest, src interface{}) error {
 		switch d := dest.(type) {
 		case *string:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = string(s)
 			return nil
 		case *interface{}:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = copyBytes(s)
 			return nil
 		case *[]byte:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = copyBytes(s)
 			return nil
 		case *sql.RawBytes:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = s
 			return nil
@@ -307,13 +307,13 @@ func ConvertAssign(dest, src interface{}) error {
 			return nil
 		case *[]byte:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = []byte(s.Format(time.RFC3339Nano))
 			return nil
 		case *sql.RawBytes:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = s.AppendFormat((*d)[:0], time.RFC3339Nano)
 			return nil
@@ -322,19 +322,19 @@ func ConvertAssign(dest, src interface{}) error {
 		switch d := dest.(type) {
 		case *interface{}:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = nil
 			return nil
 		case *[]byte:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = nil
 			return nil
 		case *sql.RawBytes:
 			if d == nil {
-				return errors.New("destination pointer is nil")
+				return errDestinationPointerNil
 			}
 			*d = nil
 			return nil
@@ -379,10 +379,10 @@ func ConvertAssign(dest, src interface{}) error {
 
 	dpv := reflect.ValueOf(dest)
 	if dpv.Kind() != reflect.Ptr {
-		return errors.New("destination not a pointer")
+		return errDestinationNotPointer
 	}
 	if dpv.IsNil() {
-		return errors.New("destination pointer is nil")
+		return errDestinationPointerNil
 	}
 
 	if !sv.IsValid() {
@@ -446,7 +446,7 @@ func ConvertAssign(dest, src interface{}) error {
 	}
 
 	trc.Trace1("sqlOut.go: ConvertAssign() - EXIT")
-	return fmt.Errorf("unsupported Scan, storing driver.Value type %T into type %T", src, dest)
+	return fmt.Errorf("%w type %T into type %T", errUnsupportedScan, src, dest)
 }
 
 func strconvErr(err error) error {

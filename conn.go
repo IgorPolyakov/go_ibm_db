@@ -86,11 +86,11 @@ func (d *Driver) Open(dsn string) (driver.Conn, error) {
 	b := api.StringToUTF16(cleanDSN)
 	if runtime.GOOS == "zos" {
 		ret = api.SQLDriverConnect(h, 0,
-			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLSMALLINT(2*len(b)), //nolint:gosec // G115: bounded string/buffer length
+			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLSMALLINT(2*len(b)), //nolint:gosec // bounded length
 			nil, 0, nil, api.SQL_DRIVER_NOPROMPT)
 	} else {
 		ret = api.SQLDriverConnect(h, 0,
-			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLSMALLINT(len(b)), //nolint:gosec // G115: bounded string/buffer length
+			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLSMALLINT(len(b)), //nolint:gosec // bounded length
 			nil, 0, nil, api.SQL_DRIVER_NOPROMPT)
 	}
 	if IsError(ret) {
@@ -122,10 +122,10 @@ func (c *Conn) GetInfo(infoType uint16) (string, error) {
 	if runtime.GOOS == "zos" {
 		// odbc api on zos doesn't handle null terminated strings, the exact size is passed
 		ret = api.SQLGetInfo(c.h, api.SQLUSMALLINT(infoType),
-			api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLSMALLINT(2*len(buf)), &outLen) //nolint:gosec // G115: bounded string/buffer length
+			api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLSMALLINT(2*len(buf)), &outLen) //nolint:gosec // bounded length
 	} else {
 		ret = api.SQLGetInfo(c.h, api.SQLUSMALLINT(infoType),
-			api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLSMALLINT(len(buf)), &outLen) //nolint:gosec // G115: bounded string/buffer length
+			api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLSMALLINT(len(buf)), &outLen) //nolint:gosec // bounded length
 	}
 	if IsError(ret) {
 		return "", NewError("SQLGetInfo", c.h)
@@ -178,7 +178,8 @@ func (c *Conn) Close() error {
 	return releaseHandle(h)
 }
 
-// Query method executes the statement with out prepare if no args provided, and a driver.ErrSkip otherwise (handled by sql.go to execute usual preparedStmt).
+// Query executes the statement without preparing when no args are
+// provided, and returns driver.ErrSkip otherwise.
 func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	trc.Trace1("conn.go: Query() - ENTRY")
 	trc.Trace1("query = " + query)
@@ -200,7 +201,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		// On z/OS, StringToUTF16 does not append null terminator,
 		// so we must pass the exact byte length instead of SQL_NTS
 		ret = api.SQLExecDirect(h,
-			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLINTEGER(2*len(b))) //nolint:gosec // G115: bounded string/buffer length
+			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLINTEGER(2*len(b))) //nolint:gosec // bounded length
 	} else {
 		ret = api.SQLExecDirect(h,
 			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQL_NTS)

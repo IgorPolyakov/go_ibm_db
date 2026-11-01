@@ -18,6 +18,8 @@
 
 - [x] **Dead code — раунд 7 (2026-11-01).** Прогон `deadcode -test` (go/tools) + `unused`: удалены `api.StringToUTF16Ptr`, Go-обёртки `api.SQLSetEnvAttr`/`SQLSetConnectAttr` (unix/windows/zos; драйвер использует UIntPtr-варианты, C-обёртки сохранены), `Pool.Display` (отладочный, вызывающих нет), `testdata.GetConnectionInfoFromConfigFile`, `testingIssue5` + недостижимая ветка сна в `Exec`. `CreateDb`/`DropDb`+`SQLCreateDb`/`SQLDropDb` сохранены — документированный публичный API (API_DOCUMENTATION.md), используется тестами. `deadcode -test ./testdata` — чисто; default lint 0; сьют Informix 0 FAIL / 32 SKIP / 39 PASS.
 
+- [x] **Sentinel-ошибки, параллельные тесты, lll/mnd — раунд 8 (2026-11-01).** err113 44→0 (sentinel'ы + %w), paralleltest 11→0, lll 50→0 (api/ — исключение в конфиге), mnd 35→0 (5 именованных констант + сужение категории), попутно закрыты noctx/unconvert/nolintlint/gofumpt-хвосты. Строгий конфиг теперь содержит ТОЛЬКО структурные категории: nestif 7, gocognit 6, gochecknoglobals 3, gochecknoinits 1, funlen 1 — все требуют рефакторинга ядра, отложены до доступа к DB2 LUW. Проверки: build/gofmt/unit ✅, default lint 0, сьют Informix 0 FAIL / 32 SKIP / 39 PASS.
+
 - [x] **gosec до нуля — раунд 6 (2026-11-01).** Снята дедупликация: `rows.go` ColumnType* переведены на `odbcNum` (реальный фикс индексов), конвертации ограниченных длин (conn/database/odbcstmt/column) аннотированы, G103 исключён в конфиге с обоснованием (cgo-маршалинг ODBC-буферов — назначение пакета). **gosec: 28 → 0.** Проверки: build/unit ✅, default lint 0, сьют Informix 0 FAIL / 32 SKIP / 39 PASS.
 
 ## Открытые проблемы
@@ -95,19 +97,19 @@
 
 ### Сложность — кандидат на рефакторинг
 
-- [ ] **Высокая когнитивная сложность (gocognit, порог 30).** [`installer/setup.go`](installer/setup.go#L190) `main` — 89; [`sqlOut.go`](sqlOut.go#L248) `ConvertAssign` — 71; [`param.go`](param.go#L42) `BindValue` — 70; `odbcstmt.go`: 122 (`Exec` — 45), 237 (`BindColumns` — 31); [`rows.go`](rows.go#L146) `Next` — 34.
+- [ ] **Высокая когнитивная сложность (gocognit, порог 30).** `installer/setup.go` `main` — 74; [`sqlOut.go`](sqlOut.go#L248) `ConvertAssign` — 71; [`param.go`](param.go#L42) `BindValue` — 70; `odbcstmt.go`: 122 (`Exec` — 45), 237 (`BindColumns` — 31); [`rows.go`](rows.go#L146) `Next` — 34.
 - [ ] **Слишком длинные функции (funlen).** [`sqlOut.go`](sqlOut.go#L33) `newOut` — 75 операторов (>60).
-- [ ] **Глубокая вложенность (nestif, 8 шт.).** `installer/setup.go`: 172, 204, 382; `odbcstmt.go`: 146, 288; `pooling.go`: 223; `rows.go`: 150; `sqlOut.go`: 42.
+- [ ] **Глубокая вложенность (nestif, 7 шт.).** `installer/setup.go`: 172, 204, 382; `odbcstmt.go`: 146, 288; `pooling.go`: 223; `rows.go`: 150; `sqlOut.go`: 42.
 - [x] **Неполные switch по `reflect.Kind` (exhaustive).** *Закрыто 2026-11-01:* во все switch в sqlOut.go добавлены явные `default` с сохранением поведения; в конфиге `default-signifies-exhaustive: true`.
 
 ### Стиль и гигиена — низкий приоритет
 
-- [ ] **Динамические ошибки вместо sentinel/`%w` (err113, 42 шт.).** `column.go`: 96, 149, 255, 314, 350, 385, 392; `database.go`: 21, 34, 97; `handle.go`: 31, 43; `installer/setup.go`: 41; `odbcstmt.go`: 128, 172, 180, 188, 250; `param.go`: 298, 376; `result.go`: 63; `sqlOut.go` ×15 (47, 80, 130, 219, 227, 231, 236, 256, 262, 268, 380, 411, 420, 429, 445); `stats.go`: 37; `stmt.go`: 66, 97, 161; `tx.go`: 29, 41.
+- [x] **Динамические ошибки вместо sentinel/`%w` (err113, 44 шт.).** *Исправлено 2026-11-01:* добавлены sentinel-ошибки в error.go — экспортированные для `errors.Is` (ErrStmtClosed, ErrStmtAlreadyClosed, ErrNoResultSet, ErrWrongArgumentCount, ErrAlreadyInTransaction, ErrNotInTransaction, ErrParameterArrayLength) и unexported для внутренних инвариантов; все 44 вызова переведены на sentinel'ы/`%w`-обёртки (инсталлятор — nolint как CLI-диагностика). `column.go`: 96, 149, 255, 314, 350, 385, 392; `database.go`: 21, 34, 97; `handle.go`: 31, 43; `installer/setup.go`: 41; `odbcstmt.go`: 128, 172, 180, 188, 250; `param.go`: 298, 376; `result.go`: 63; `sqlOut.go` ×15 (47, 80, 130, 219, 227, 231, 236, 256, 262, 268, 380, 411, 420, 429, 445); `stats.go`: 37; `stmt.go`: 66, 97, 161; `tx.go`: 29, 41.
 - [x] **staticcheck QF/ST (9 шт., помимо SA1019).** *Исправлено:* QF1001 — `error.go`; ST1005 — `installer/setup.go`: 35, 41, 47, 54; QF1008 — `conn.go`, `driver.go`, `pooling.go`, `installer/setup.go`; QF1003 — `installer/setup.go` (переписаны на switch).
 - [x] **gocritic.** *Исправлено:* ifElseChain → switch (`installer/setup.go`: 209, 271, 281, 390; `database.go`: 72); assignOp (`column.go`: 306); commentFormatting (`log2/logger1.go`). Остаётся только exitAfterDefer — см. блок безопасности.
 - [x] **revive (50 шт.).** *Исправлено 2026-11-01:* документированы все exported-символы драйвера и api/ (включая пакеты go_ibm_db/log2); исправлены var-naming (URL-имена, `lastInsertID`, `linuxUntar`/`aixUntar`), indent-error-flow/early-return/superfluous-else в инсталляторе, unused-parameter в интерфейсных методах Column, captLocal в `SQLColAttribute`. ODBC-имена констант/полей — публичный API: исключение var-naming для `api/` в конфиге. revive в строгом прогоне: **0**.
-- [ ] **Строки длиннее 120 символов (lll, 50 шт.).** `api/` (//sys-директивы и сгенерированные мосты — нельзя переносить без потери генерируемости), `installer/setup.go`, `column.go`, `param.go`. Кандидат на исключение в конфиге для api/.
-- [ ] **Магические числа (mnd, 35 шт.).** Размеры буферов и ODBC-значения в литералах; вынести в именованные константы.
+- [x] **Строки длиннее 120 символов (lll, 50 шт.).** *Закрыто 2026-11-01:* api/ исключён в конфиге (//sys-директивы и cgo-мосты нельзя переносить), в драйвере и инсталляторе строки перенесены/сокращены. lll: 0.
+- [x] **Магические числа (mnd, 35 шт.).** *Закрыто 2026-11-01:* значимые вынесены в константы column.go (maxColumnBufferSize, maxXMLBufferSize, columnNameBufferSize, getDataChunkSize, secondsPerHour); для ODBC-идиом (байты на юнит, базы strconv, права файлов) категория в конфиге сужена до `assign`.
 - [x] **godot (3 шт.).** *Закрыто 2026-11-01:* док-комментарии пула завершены точками; cgo-преамбула `api/api_unix.go` — исключение в конфиге (C-код нельзя аннотировать).
 - [x] **godox.** *Закрыто 2026-11-01:* устаревшие TODO переписаны в описательные комментарии, живые заметки сохранены без маркера.
 - [x] **intrange.** *Исправлено:* `database.go`: 26; `param.go` (все циклы по `d`); `pooling_test.go`: 52.
@@ -116,4 +118,4 @@
 - [x] **Опечатки.** *Исправлено:* `stmt.go`: 75 — «the the»; `stmt.go`: 193 — «implementes» → «implements».
 - [x] **whitespace.** *Исправлено:* `param.go`: 40 — лишняя пустая строка удалена.
 - [x] **Глобальные состояния (gochecknoglobals/gochecknoinits).** *Частично закрыто 2026-11-01:* `testingIssue5` удалён как dead code (никогда не записывался, ветка недостижима). Остались `drv`+`init` (driver.go — архитектура database/sql) и `globalvar`/`traceFileWarned` (log2 — трассировка) — принять осознанно.
-- [ ] **paralleltest (7 шт.).** Тесты без `t.Parallel()`: `dsn_test.go`: 12, 71; `pooling_test.go`: 10, 23, 44, 77, 98 — учитывать, что тесты `testdata/` требуют живую БД и параллелизм там небезопасен.
+- [x] **paralleltest (11 шт.).** *Закрыто 2026-11-01:* `t.Parallel()` добавлен во все unit-тесты (dsn/pooling) и их подтесты; `testdata/` осознанно без параллелизма (живая БД).

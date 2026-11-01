@@ -6,7 +6,6 @@ package go_ibm_db
 
 import (
 	"database/sql/driver"
-	"errors"
 
 	"github.com/ibmdb/go_ibm_db/api"
 )
@@ -28,7 +27,7 @@ func (c *Conn) setAutoCommitAttr(a uintptr) error {
 // Begin starts a transaction by disabling autocommit.
 func (c *Conn) Begin() (driver.Tx, error) {
 	if c.tx != nil {
-		return nil, errors.New("already in a transaction")
+		return nil, ErrAlreadyInTransaction
 	}
 	err := c.setAutoCommitAttr(api.SQL_AUTOCOMMIT_OFF)
 	if err != nil {
@@ -40,7 +39,7 @@ func (c *Conn) Begin() (driver.Tx, error) {
 
 func (c *Conn) endTx(commit bool) error {
 	if c.tx == nil {
-		return errors.New("not in a transaction")
+		return ErrNotInTransaction
 	}
 	var howToEnd api.SQLSMALLINT
 	if commit {

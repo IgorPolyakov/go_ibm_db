@@ -33,7 +33,7 @@ func dirExists(path string) bool {
 
 func downloadFile(url string, filename string) error {
 	// Create HTTP GET request
-	resp, err := http.Get(url) //nolint:gosec // G107: the installer is designed to accept a download URL from the environment
+	resp, err := http.Get(url) //nolint:gosec,noctx // G107: URL from env; CLI needs no ctx
 	if err != nil {
 		return fmt.Errorf("failed to fetch %s: %w", url, err)
 	}
@@ -41,11 +41,11 @@ func downloadFile(url string, filename string) error {
 
 	// Check for non-200 status
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download %s: HTTP %d", url, resp.StatusCode)
+		return fmt.Errorf("failed to download %s: HTTP %d", url, resp.StatusCode) //nolint:err113 // CLI one-off diagnostic
 	}
 
 	// Create destination file
-	out, err := os.Create("../../" + filename) //nolint:gosec // G304: installer-only tool, filename is derived from the fixed IBM download
+	out, err := os.Create("../../" + filename) //nolint:gosec // G304: fixed IBM download name
 	if err != nil {
 		return fmt.Errorf("failed to create file %s: %w", filename, err)
 	}
@@ -73,7 +73,7 @@ func Unzipping(sourcefile string, targetDirectory string) {
 const maxDecompressedFileSize = 1 << 31 // 2 GiB
 
 func unzip(sourcefile string, targetDirectory string) error {
-	reader, err := zip.OpenReader("./../../" + sourcefile) //nolint:gosec // installer-only tool: path is fixed relative to the repo
+	reader, err := zip.OpenReader("./../../" + sourcefile)
 	if err != nil {
 		return err
 	}
@@ -97,16 +97,16 @@ func extractZipEntry(f *zip.File, targetDirectory string) error {
 	// zip-slip guard: reject entries that escape the target directory
 	cleanTarget := filepath.Clean(targetDirectory)
 	if path != cleanTarget && !strings.HasPrefix(path, cleanTarget+string(os.PathSeparator)) {
-		return fmt.Errorf("archive entry %q escapes target directory", f.Name)
+		return fmt.Errorf("archive entry %q escapes target directory", f.Name) //nolint:err113 // CLI one-off diagnostic
 	}
 	if f.FileInfo().IsDir() {
-		if err := os.MkdirAll(path, f.Mode()); err != nil { //nolint:gosec // G703: path is checked by the zip-slip guard above
+		if err := os.MkdirAll(path, f.Mode()); err != nil { //nolint:gosec // zip-slip guarded above
 			return fmt.Errorf("creating directory %s: %w", path, err)
 		}
 		fmt.Println("Creating directory", path)
 		return nil
 	}
-	writer, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, f.Mode()) //nolint:gosec // G304: path is checked by the zip-slip guard above
+	writer, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, f.Mode()) //nolint:gosec // zip-slip guarded
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,8 @@ func extractZipEntry(f *zip.File, targetDirectory string) error {
 		return copyErr
 	}
 	if n > maxDecompressedFileSize {
-		return fmt.Errorf("archive entry %q decompresses beyond %d bytes", f.Name, maxDecompressedFileSize)
+		return fmt.Errorf("archive entry %q decompresses beyond %d bytes", //nolint:err113 // CLI diagnostic
+			f.Name, maxDecompressedFileSize)
 	}
 	fmt.Println("Unzipping : ", path)
 	return nil
@@ -126,7 +127,8 @@ func extractZipEntry(f *zip.File, targetDirectory string) error {
 
 func linuxUntar(clidriver string, targetDirectory string, ibmdbDir string) error {
 	fmt.Printf("Extracting with tar -xzf %s -C %s", clidriver, targetDirectory)
-	out, err := exec.CommandContext(context.Background(), "tar", "xzf", "./../../"+clidriver, "-C", targetDirectory).Output() //nolint:gosec // G204: installer tool, arguments are built from the fixed IBM archive name
+	out, err := exec.CommandContext(context.Background(), //nolint:gosec // G204: fixed IBM archive name
+		"tar", "xzf", "./../../"+clidriver, "-C", targetDirectory).Output()
 
 	fmt.Println(string(out))
 	if err != nil {
@@ -140,9 +142,12 @@ func linuxUntar(clidriver string, targetDirectory string, ibmdbDir string) error
 
 	if runtime.GOOS == "darwin" {
 		// Create symlinks for libdb2
-		_, _ = exec.Command("ln", "-s", targetDirectory+"/clidriver/lib/libdb2.dylib", targetDirectory+"/libdb2.dylib").Output()
-		_, _ = exec.Command("ln", "-s", targetDirectory+"/clidriver/lib/libdb2.dylib", ibmdbDir+"/libdb2.dylib").Output()
-		_, _ = exec.Command("ln", "-s", targetDirectory+"/clidriver/lib/libdb2.dylib", ibmdbDir+"/testdata/libdb2.dylib").Output()
+		_, _ = exec.Command("ln", "-s", //nolint:gosec,noctx // G204: fixed symlink path
+			targetDirectory+"/clidriver/lib/libdb2.dylib", targetDirectory+"/libdb2.dylib").Output()
+		_, _ = exec.Command("ln", "-s", //nolint:gosec,noctx // G204: fixed symlink path
+			targetDirectory+"/clidriver/lib/libdb2.dylib", ibmdbDir+"/libdb2.dylib").Output()
+		_, _ = exec.Command("ln", "-s", //nolint:gosec,noctx // G204: fixed symlink path
+			targetDirectory+"/clidriver/lib/libdb2.dylib", ibmdbDir+"/testdata/libdb2.dylib").Output()
 	}
 
 	return nil
@@ -150,7 +155,7 @@ func linuxUntar(clidriver string, targetDirectory string, ibmdbDir string) error
 
 func aixUntar(clidriver string, targetDirectory string) error {
 	fmt.Printf("Extracting with gunzip %s", clidriver)
-	gunzipOut, err := exec.Command("gunzip", "./../../"+clidriver).Output() //nolint:gosec // G204: installer tool, argument is the fixed IBM archive name
+	gunzipOut, err := exec.Command("gunzip", "./../../"+clidriver).Output() //nolint:gosec,noctx // fixed archive
 
 	fmt.Println(string(gunzipOut))
 	if err != nil {
@@ -161,7 +166,8 @@ func aixUntar(clidriver string, targetDirectory string) error {
 	clidriver = strings.TrimRight(clidriver, ".gz")
 
 	fmt.Printf("Extracting with tar -xvf %s -C %s", clidriver, targetDirectory)
-	tarOut, err := exec.Command("tar", "xvf", "./../../"+clidriver, "-C", targetDirectory).Output() //nolint:gosec // G204/G305: installer tool, arguments are the fixed IBM archive and target
+	tarOut, err := exec.Command("tar", "xvf", //nolint:gosec,noctx // G204/G305: fixed archive/target
+		"./../../"+clidriver, "-C", targetDirectory).Output()
 
 	fmt.Println(string(tarOut))
 	if err != nil {
@@ -238,13 +244,17 @@ func main() {
 			// IBM_DB_HOME is not set
 			switch runtime.GOOS {
 			case "windows":
-				fmt.Println("Please set IBM_DB_HOME and add %IBM_DB_HOME%/bin to PATH and %IBM_DB_HOME%/lib to LIB environment variables after clidriver installation")
+				fmt.Println("Please set IBM_DB_HOME and add %IBM_DB_HOME%/bin to PATH " +
+					"and %IBM_DB_HOME%/lib to LIB environment variables after clidriver installation")
 			case "aix":
-				fmt.Println("Please set IBM_DB_HOME, CGO_CFLAGS, CGO_LDFLAGS and LIBPATH environment variables after clidriver installation")
+				fmt.Println("Please set IBM_DB_HOME, CGO_CFLAGS, CGO_LDFLAGS and LIBPATH " +
+					"environment variables after clidriver installation")
 			case "darwin":
-				fmt.Println("Please set IBM_DB_HOME, CGO_CFLAGS, CGO_LDFLAGS and DYLD_LIBRARY_PATH environment variables after clidriver installation")
+				fmt.Println("Please set IBM_DB_HOME, CGO_CFLAGS, CGO_LDFLAGS and DYLD_LIBRARY_PATH " +
+					"environment variables after clidriver installation")
 			default:
-				fmt.Println("Please set IBM_DB_HOME, CGO_CFLAGS, CGO_LDFLAGS and LD_LIBRARY_PATH environment variables after clidriver installation")
+				fmt.Println("Please set IBM_DB_HOME, CGO_CFLAGS, CGO_LDFLAGS and LD_LIBRARY_PATH " +
+					"environment variables after clidriver installation")
 			}
 		} else {
 			fmt.Println("IBM_DB_HOME is set to", ibmDBHome)
@@ -422,9 +432,11 @@ func getDownloadURL(cliFileName string) string {
 		clidriverVersion, ok := os.LookupEnv("CLIDRIVER_DOWNLOAD_VERSION")
 		if ok && clidriverVersion != "" {
 			switch {
-			case runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && strings.HasPrefix(strings.ToLower(clidriverVersion), "v11"):
+			case runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" &&
+				strings.HasPrefix(strings.ToLower(clidriverVersion), "v11"):
 				downloadURL = primaryURL + cliFileName
-			case runtime.GOOS == "darwin" && runtime.GOARCH != "arm64" && strings.HasPrefix(strings.ToLower(clidriverVersion), "v12"):
+			case runtime.GOOS == "darwin" && runtime.GOARCH != "arm64" &&
+				strings.HasPrefix(strings.ToLower(clidriverVersion), "v12"):
 				downloadURL = primaryURL + cliFileName
 			default:
 				downloadURL = primaryURL + clidriverVersion + "/" + cliFileName

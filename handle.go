@@ -30,7 +30,7 @@ func ToHandleAndType(handle interface{}) (h api.SQLHANDLE, ht api.SQLSMALLINT) {
 		ht = api.SQL_HANDLE_STMT
 		h = api.SQLHANDLE(v)
 	default:
-		panic(fmt.Errorf("unexpected handle type %T", v))
+		panic(fmt.Errorf("%w: %T", errUnexpectedHandleType, v))
 	}
 	trc.Trace1("handle.go: ToHandleAndType() - EXIT")
 	return h, ht
@@ -42,7 +42,7 @@ func releaseHandle(handle interface{}) error {
 	h, ht := ToHandleAndType(handle)
 	ret := api.SQLFreeHandle(ht, h)
 	if ret == api.SQL_INVALID_HANDLE {
-		return fmt.Errorf("SQLFreeHandle(%d, %d) returns SQL_INVALID_HANDLE", ht, h)
+		return fmt.Errorf("%w: handleType=%d handle=%d", errInvalidHandle, ht, h)
 	}
 	if IsError(ret) {
 		return NewError("SQLFreeHandle", handle)

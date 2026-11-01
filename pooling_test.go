@@ -9,6 +9,8 @@ import (
 
 // TestPoolSize verifies size() sums used and available connections for a pool.
 func TestPoolSize(t *testing.T) {
+	t.Parallel()
+
 	p := Pconnect("PoolSize=3")
 
 	p.usedPool["dsn1"] = []*DBP{{}, {}}
@@ -22,6 +24,8 @@ func TestPoolSize(t *testing.T) {
 // TestPoolCapacityIndependence verifies that filling one pool to capacity
 // does not affect another independently created pool's capacity accounting.
 func TestPoolCapacityIndependence(t *testing.T) {
+	t.Parallel()
+
 	poolA := Pconnect("PoolSize=1")
 	poolB := Pconnect("PoolSize=1")
 
@@ -43,6 +47,8 @@ func TestPoolCapacityIndependence(t *testing.T) {
 }
 
 func TestPoolOpenDoesNotReturnConnectionTwice(t *testing.T) {
+	t.Parallel()
+
 	p := Pconnect("PoolSize=32")
 	if !p.Init(1, "dsn") {
 		t.Fatal("expected pool initialization to succeed")
@@ -76,6 +82,8 @@ func TestPoolOpenDoesNotReturnConnectionTwice(t *testing.T) {
 }
 
 func TestPoolLifetimeIsIndependent(t *testing.T) {
+	t.Parallel()
+
 	poolA := Pconnect("PoolSize=1")
 	poolB := Pconnect("PoolSize=1")
 
@@ -97,6 +105,8 @@ func TestPoolLifetimeIsIndependent(t *testing.T) {
 }
 
 func TestPoolReleasePreventsNewConnections(t *testing.T) {
+	t.Parallel()
+
 	p := Pconnect("PoolSize=1")
 	p.Release()
 
@@ -111,6 +121,8 @@ func TestPoolReleasePreventsNewConnections(t *testing.T) {
 // TestPconnectInvalidParamsNoPanic verifies that malformed pool option
 // strings produce a usable pool instead of a panic.
 func TestPconnectInvalidParamsNoPanic(t *testing.T) {
+	t.Parallel()
+
 	for _, s := range []string{"PoolSize", "PoolSize=", "PoolSize=abc", "PoolSize=0", "Foo=1", ""} {
 		p := Pconnect(s)
 		if p == nil {
@@ -125,6 +137,8 @@ func TestPconnectInvalidParamsNoPanic(t *testing.T) {
 // TestPoolOpenAfterReleaseWhileWaiting verifies that Open returns nil
 // instead of panicking when Release runs while Open waits for a free slot.
 func TestPoolOpenAfterReleaseWhileWaiting(t *testing.T) {
+	t.Parallel()
+
 	p := Pconnect("PoolSize=1")
 	// occupy the only slot with a lazily-opened handle
 	filled, err := sql.Open("go_ibm_db", "dsn")

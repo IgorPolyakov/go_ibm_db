@@ -33,7 +33,7 @@ type Parameter struct {
 
 // StoreStrLen_or_IndPtr stores v into StrLen_or_IndPtr field of p
 // and returns address of that field.
-func (p *Parameter) StoreStrLen_or_IndPtr(v api.SQLLEN) *api.SQLLEN { //nolint:revive // ODBC name kept for compatibility
+func (p *Parameter) StoreStrLen_or_IndPtr(v api.SQLLEN) *api.SQLLEN { //nolint:revive // ODBC name
 	trc.Trace1("param.go: StoreStrLen_or_IndPtr()")
 
 	p.StrLen_or_IndPtr = v
@@ -44,7 +44,7 @@ func (p *Parameter) StoreStrLen_or_IndPtr(v api.SQLLEN) *api.SQLLEN { //nolint:r
 // instead of truncating on overflow.
 func sqlulen(n int) (api.SQLULEN, error) {
 	if n < 0 || uint64(n) > math.MaxUint32 {
-		return 0, fmt.Errorf("parameter of %d elements exceeds SQLULEN range", n)
+		return 0, fmt.Errorf("%w: %d elements", errParameterTooLarge, n)
 	}
 	return api.SQLULEN(n), nil
 }
@@ -85,7 +85,7 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 			l -= 1 // remove terminating 0 added by StringToUTF16 in api.go
 		}
 		if l < 0 || uint64(l) > math.MaxUint32 {
-			return fmt.Errorf("string parameter of %d UTF-16 code units exceeds SQLULEN range", l)
+			return fmt.Errorf("%w: %d UTF-16 code units", errParameterTooLarge, l)
 		}
 		size = api.SQLULEN(l)
 		if size < 1 {
@@ -227,7 +227,7 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 		p.Data = b
 		buf = unsafe.Pointer(&b[0])
 		if l < 0 || uint64(l) > math.MaxUint32 {
-			return fmt.Errorf("string array parameter of %d UTF-16 code units exceeds SQLULEN range", l)
+			return fmt.Errorf("%w: string array of %d UTF-16 code units", errParameterTooLarge, l)
 		}
 		size = api.SQLULEN(l)
 		if size < 1 {
@@ -339,7 +339,7 @@ func (p *Parameter) BindValue(h api.SQLHSTMT, idx int, v driver.Value) error {
 			size = 20 + api.SQLULEN(decimal)
 		}
 	default:
-		panic(fmt.Errorf("unsupported bind param type %T", v))
+		panic(fmt.Errorf("%w: %T", errUnsupportedBindParamType, v))
 	}
 	ret := api.SQLBindParameter(h, odbcNum(idx),
 		iotype, ctype, sqltype, size, decimal,
@@ -368,9 +368,12 @@ func ExtractParameters(h api.SQLHSTMT, query ...string) ([]Parameter, error) {
 		return nil, nil
 	}
 	ps := make([]Parameter, n)
-	if runtime.GOOS == "zos" && len(query) > 0 && strings.HasPrefix(strings.TrimSpace(strings.ToUpper(query[0])), "SELECT") {
-		trc.Trace1("param.go: ExtractParameters() - skipping SQLDescribeParam on z/OS")
-		return ps, nil
+	if runtime.GOOS == "zos" && len(query) > 0 {
+		trimmed := strings.TrimSpace(strings.ToUpper(query[0]))
+		if strings.HasPrefix(trimmed, "SELECT") {
+			trc.Trace1("param.go: ExtractParameters() - skipping SQLDescribeParam on z/OS")
+			return ps, nil
+		}
 	}
 	// fetch param descriptions
 	for i := range ps {
@@ -417,6 +420,6 @@ func SqltoCtype(sqltype api.SQLSMALLINT) api.SQLSMALLINT {
 	case api.SQL_DBCLOB:
 		return api.SQL_C_DBCHAR
 	default:
-		panic(fmt.Errorf("unsupported param type %v at sql.out", sqltype))
+		panic(fmt.Errorf("%w: %v", errUnsupportedParamType, sqltype))
 	}
 }

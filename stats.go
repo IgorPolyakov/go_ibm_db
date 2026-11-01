@@ -35,7 +35,7 @@ func (s *Stats) updateHandleCount(handleType api.SQLSMALLINT, change int) {
 		s.StmtCount += change
 	default:
 		trc.Trace1(fmt.Sprintf("unexpected handle type %d", handleType))
-		panic(fmt.Errorf("unexpected handle type %d", handleType))
+		panic(fmt.Errorf("%w: %d", errUnexpectedHandleType, handleType))
 	}
 
 	trc.Trace1("stats.go: updateHandleCount() - EXIT")

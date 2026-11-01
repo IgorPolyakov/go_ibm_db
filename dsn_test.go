@@ -10,6 +10,8 @@ import (
 )
 
 func TestParseDSN(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name              string
 		dsn               string
@@ -70,6 +72,8 @@ func TestParseDSN(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cleanDSN, fetchSize := parseDSN(tt.dsn)
 			if fetchSize != tt.expectedFetchSize {
 				t.Errorf("expected fetchSize %d, got %d", tt.expectedFetchSize, fetchSize)
@@ -89,6 +93,8 @@ func TestParseDSN(t *testing.T) {
 }
 
 func TestMaskDSN(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		dsn  string
@@ -117,6 +123,8 @@ func TestMaskDSN(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
 			if got := maskDSN(test.dsn); got != test.want {
 				t.Fatalf("maskDSN(%q) = %q, want %q", test.dsn, got, test.want)
 			}

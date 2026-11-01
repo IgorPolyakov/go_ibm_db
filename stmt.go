@@ -8,7 +8,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
 	"sync"
 	"time"
 
@@ -69,7 +68,7 @@ func (s *Stmt) Close() error {
 	trc.Trace1("stmt.go: Close() - ENTRY")
 
 	if s.os == nil {
-		return errors.New("Stmt is already closed")
+		return ErrStmtAlreadyClosed
 	}
 	ret := s.os.closeByStmt()
 	s.os = nil
@@ -101,7 +100,7 @@ func (s *Stmt) exec(ctx context.Context, args []driver.Value) (driver.Result, er
 	trc.Trace1("stmt.go: exec()- ENTRY")
 
 	if s.os == nil {
-		return nil, errors.New("Stmt is closed")
+		return nil, ErrStmtClosed
 	}
 
 	s.mu.Lock()
@@ -176,7 +175,7 @@ func (s *Stmt) query1(ctx context.Context, args []driver.Value) (driver.Rows, er
 	trc.Trace1("stmt.go: query1()")
 
 	if s.os == nil {
-		return nil, errors.New("Stmt is closed")
+		return nil, ErrStmtClosed
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

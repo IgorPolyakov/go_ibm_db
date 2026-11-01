@@ -6,7 +6,6 @@ package go_ibm_db
 
 import (
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"runtime"
 	"sync"
@@ -59,7 +58,7 @@ func (c *Conn) PrepareODBCStmt(query string) (*ODBCStmt, error) {
 		// On z/OS, StringToUTF16 does not append null terminator,
 		// so we must pass the exact byte length instead of SQL_NTS
 		ret = api.SQLPrepare(h,
-			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLINTEGER(2*len(b))) //nolint:gosec // G115: b is the bounded query string
+			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQLINTEGER(2*len(b))) //nolint:gosec // bounded query length
 	} else {
 		ret = api.SQLPrepare(h,
 			(*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQL_NTS)
@@ -148,7 +147,7 @@ func (s *ODBCStmt) Exec(args []driver.Value) error {
 	ArrayCheck := 0
 	ArrayLength := 0
 	if len(args) != len(s.Parameters) {
-		return fmt.Errorf("wrong number of arguments %d, %d expected", len(args), len(s.Parameters))
+		return fmt.Errorf("%w: %d given, %d expected", ErrWrongArgumentCount, len(args), len(s.Parameters))
 	}
 	for i, a := range args {
 		// this could be done in 2 steps:
@@ -185,31 +184,31 @@ func (s *ODBCStmt) Exec(args []driver.Value) error {
 			switch d := a.(type) {
 			case []int64:
 				if len(d) != ArrayLength {
-					return errors.New("parameter's array value length should be same")
+					return ErrParameterArrayLength
 				}
 				ArrayLength = len(d)
 				ArrayCheck = 1
 			case []string:
 				if len(d) != ArrayLength {
-					return errors.New("parameter's array value length should be same")
+					return ErrParameterArrayLength
 				}
 				ArrayLength = len(d)
 				ArrayCheck = 1
 			case []bool:
 				if len(d) != ArrayLength {
-					return errors.New("parameter's array value length should be same")
+					return ErrParameterArrayLength
 				}
 				ArrayLength = len(d)
 				ArrayCheck = 1
 			case []float64:
 				if len(d) != ArrayLength {
-					return errors.New("parameter's array value length should be same")
+					return ErrParameterArrayLength
 				}
 				ArrayLength = len(d)
 				ArrayCheck = 1
 			case []time.Time:
 				if len(d) != ArrayLength {
-					return errors.New("parameter's array value length should be same")
+					return ErrParameterArrayLength
 				}
 				ArrayLength = len(d)
 				ArrayCheck = 1
@@ -222,7 +221,7 @@ func (s *ODBCStmt) Exec(args []driver.Value) error {
 		paramSetSize = ArrayLength
 	}
 	ret := api.SQLSetStmtAttr(s.h, api.SQL_ATTR_PARAMSET_SIZE,
-		api.SQLPOINTER(uintptr(paramSetSize)), api.SQL_IS_INTEGER) //nolint:govet // ODBC statement attributes pass the integer value via the pointer argument
+		api.SQLPOINTER(uintptr(paramSetSize)), api.SQL_IS_INTEGER) //nolint:govet // ODBC integer attribute via pointer arg
 	if IsError(ret) {
 		return NewError("SQLSetStmtAttr", s.h)
 	}
@@ -259,13 +258,13 @@ func (s *ODBCStmt) BindColumns() error {
 		return NewError("SQLNumResultCols", s.h)
 	}
 	if n < 1 {
-		return errors.New("Query executed successfully but did not create a result set")
+		return ErrNoResultSet
 	}
 
 	// Set up block cursor if fetchSize > 1
 	if s.fetchSize > 1 {
 		ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROW_ARRAY_SIZE,
-			api.SQLPOINTER(uintptr(s.fetchSize)), api.SQL_IS_UINTEGER) //nolint:govet // ODBC statement attributes pass the integer value via the pointer argument
+			api.SQLPOINTER(uintptr(s.fetchSize)), api.SQL_IS_UINTEGER) //nolint:govet // ODBC integer attribute via pointer arg
 		if IsError(ret) {
 			return NewError("SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE", s.h)
 		}
@@ -307,7 +306,7 @@ func (s *ODBCStmt) BindColumns() error {
 				binding = false
 				s.fetchSize = 1
 				ret = api.SQLSetStmtAttr(s.h, api.SQL_ATTR_ROW_ARRAY_SIZE,
-					api.SQLPOINTER(uintptr(1)), api.SQL_IS_UINTEGER) //nolint:govet // ODBC statement attributes pass the integer value via the pointer argument
+					api.SQLPOINTER(uintptr(1)), api.SQL_IS_UINTEGER) //nolint:govet // ODBC integer attribute via pointer arg
 				if IsError(ret) {
 					return NewError("SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE reset", s.h)
 				}
