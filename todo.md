@@ -24,6 +24,8 @@
 
 ## Открытые проблемы
 
+- [x] **Ревью локальной истории (2026-11-01, вечер) — три замечания.** 1) Гонка в `watchContext`: `stop` не дожидался выхода горутины-наблюдателя — `SQLCancel` мог «протечь» в следующий запрос на том же statement; теперь `stop` ждёт `<-exited`. 2) `maskDSN` не распознавал ключи с пробелами (`PWD =secret`) — добавлен `TrimSpace` ключа + тест-кейсы. 3) `NextResultSet` звал блокирующий `SQLMoreResults` без наблюдателя — добавлены `watchContext` и приоритет `ctx.Err()`. Возможное продолжение: наблюдатель на `SQLPrepare` (редко блокирует, не сделано).
+
 - [x] **Высокий: отмена контекста не останавливает блокирующие операции ODBC.** *Исправлено 2026-11-01:* добавлен `api.SQLCancel` (все платформы) и `watchContext` — watcher-горутина вызывает `SQLCancel` при `ctx.Done()` для блокирующих `SQLExecute` (`Stmt.exec`, `Stmt.query1`) и `SQLFetch` (`Rows.Next`, контекст хранится в `Rows`). Гонка с освобождением handle закрыта через `cancelMu`/`freed` в `ODBCStmt`. Интеграционный тест `TestExecContextCancelDuringBlockedExec`: заблокированный на row-lock UPDATE отменяется ровно по дедлайну (3.0с) и возвращает `context deadline exceeded`.
 
 - [x] **Высокий: ошибка `SQLMoreResults` игнорируется при `Exec`.** *Исправлено 2026-11-01:* при ошибке `SQLMoreResults` цикл теперь возвращает `NewError("SQLMoreResults", …)` вместо бесконечного повторения; выход — только по `SQL_NO_DATA`.

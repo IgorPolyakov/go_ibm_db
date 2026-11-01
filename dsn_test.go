@@ -111,6 +111,16 @@ func TestMaskDSN(t *testing.T) {
 			want: "DATABASE=x;pwd=***",
 		},
 		{
+			name: "password key tolerates spaces",
+			dsn:  "DATABASE=x;UID=u;PWD =secret",
+			want: "DATABASE=x;UID=u;PWD =***",
+		},
+		{
+			name: "password key with leading space",
+			dsn:  "DATABASE=x; PWD=secret",
+			want: "DATABASE=x; PWD=***",
+		},
+		{
 			name: "no password stays intact",
 			dsn:  "DATABASE=x;UID=u",
 			want: "DATABASE=x;UID=u",

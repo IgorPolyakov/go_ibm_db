@@ -56,12 +56,13 @@ func parseDSN(dsn string) (string, int) {
 }
 
 // maskDSN redacts the password part of a connection string so that
-// tracing never logs credentials.
+// tracing never logs credentials. The key comparison tolerates spaces
+// around the key ("PWD =secret", " PWD=x").
 func maskDSN(dsn string) string {
 	parts := strings.Split(dsn, ";")
 	for i, p := range parts {
 		kv := strings.SplitN(p, "=", 2)
-		if len(kv) == 2 && strings.EqualFold(kv[0], "PWD") {
+		if len(kv) == 2 && strings.EqualFold(strings.TrimSpace(kv[0]), "PWD") {
 			parts[i] = kv[0] + "=***"
 		}
 	}

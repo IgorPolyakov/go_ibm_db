@@ -267,11 +267,19 @@ func (r *Rows) HasNextResultSet() bool {
 func (r *Rows) NextResultSet() error {
 	trc.Trace1("rows.go: NextResultSet() - ENTRY")
 
+	// SQLMoreResults can block on the server like SQLFetch does; make the
+	// query context cancel it too
+	stopWatch := watchContext(r.ctx, r.os)
+	defer stopWatch()
+
 	ret := api.SQLMoreResults(r.os.h)
 	if ret == api.SQL_NO_DATA {
 		return io.EOF
 	}
 	if IsError(ret) {
+		if cerr := r.ctx.Err(); cerr != nil {
+			return cerr
+		}
 		return NewError("SQLMoreResults", r.os.h)
 	}
 
