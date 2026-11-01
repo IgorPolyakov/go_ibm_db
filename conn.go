@@ -121,20 +121,28 @@ func (c *Conn) GetInfo(infoType uint16) (string, error) {
 
 	buf := make([]uint16, 128)
 	var outLen api.SQLSMALLINT
-	var ret api.SQLRETURN
-	if runtime.GOOS == "zos" {
-		// odbc api on zos doesn't handle null terminated strings, the exact size is passed
-		ret = api.SQLGetInfo(c.h, api.SQLUSMALLINT(infoType),
-			api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLSMALLINT(2*len(buf)), &outLen) //nolint:gosec // bounded length
-	} else {
-		ret = api.SQLGetInfo(c.h, api.SQLUSMALLINT(infoType),
-			api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLSMALLINT(len(buf)), &outLen) //nolint:gosec // bounded length
-	}
+	// BufferLength is in BYTES for the wide API on every platform
+	// (z/OS included); passing UTF-16 units instead happens to be
+	// tolerated by libdb2 on unix but yields empty values from db2cli64.
+	ret := api.SQLGetInfo(c.h, api.SQLUSMALLINT(infoType),
+		api.SQLPOINTER(unsafe.Pointer(&buf[0])), api.SQLSMALLINT(2*len(buf)), &outLen) //nolint:gosec // bounded length
 	if IsError(ret) {
 		return "", NewError("SQLGetInfo", c.h)
 	}
 
-	name := api.UTF16ToString(buf)
+	// SQLGetInfo reports the value length in outLen (in BYTES for the
+	// wide API, without the terminator). Some CLI builds — notably
+	// db2cli64 on Windows — do not NUL-terminate the buffer, so decoding
+	// to the first NUL yields an empty string there; honor outLen first
+	// and fall back to NUL-termination when it looks unusable.
+	name := ""
+	units := int(outLen) / 2
+	if units > 0 && units <= len(buf) {
+		name = api.UTF16ToString(buf[:units])
+	}
+	if name == "" {
+		name = api.UTF16ToString(buf)
+	}
 	if !isPrintableASCII(name) {
 		// Some servers (Informix over DRDA) return the info value as
 		// single-byte ASCII even through the wide (UTF-16) API. UTF16ToString

@@ -177,7 +177,11 @@ func runOperation(ctx context.Context, db *sql.DB, pool *ibmdb.Pool, session *li
 				return err
 			}
 			if name == "" {
-				return errors.New("empty SQL_DBMS_NAME")
+				// telemetry for the rare empty-result case: does an
+				// immediate retry on the same connection recover?
+				retry, rerr := conn.GetInfo(api.SQL_DBMS_NAME)
+				ver, _ := conn.GetInfo(api.SQL_DBMS_VER)
+				return fmt.Errorf("empty SQL_DBMS_NAME (retry=%q rerr=%v ver=%q)", retry, rerr, ver)
 			}
 			return nil
 		})

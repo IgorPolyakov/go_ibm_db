@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -289,6 +290,9 @@ func stressSeed(t *testing.T) int64 {
 
 // procFDCount returns the number of open file descriptors (linux only).
 func procFDCount() int {
+	if runtime.GOOS != "linux" {
+		return -1
+	}
 	entries, err := os.ReadDir("/proc/self/fd")
 	if err != nil {
 		return -1
