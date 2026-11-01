@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -125,6 +126,8 @@ func TestLiveStress(t *testing.T) {
 			}
 		}
 	}
+	before := takeLeakSnapshot()
+
 	ctx, cancel := context.WithTimeout(context.Background(), duration)
 	defer cancel()
 
@@ -154,7 +157,36 @@ func TestLiveStress(t *testing.T) {
 			}
 		}()
 	}
+	// progress ticker for soak analysis: cumulative ops every 15s
+	tickerDone := make(chan struct{})
+	ticker := time.NewTicker(15 * time.Second)
+	lastCount := uint64(0)
+	lastTime := time.Now()
+	go func() {
+		defer close(tickerDone)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				now := uint64(0)
+				total := count.Load()
+				now, lastCount = total-lastCount, total
+				elapsed := time.Since(lastTime).Seconds()
+				lastTime = time.Now()
+				t.Logf("progress: ops=%d rate=%.0f/s", total, float64(now)/elapsed)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	group.Wait()
+	ticker.Stop()
+	<-tickerDone
+	// database/sql releases statements and connections asynchronously
+	// (connection cleaner goroutine); let it settle before comparing
+	time.Sleep(2 * time.Second)
+	assertNoLeaks(t, before, takeLeakSnapshot(), workers)
 	select {
 	case err := <-failures:
 		t.Fatal(err)
@@ -253,4 +285,60 @@ func stressSeed(t *testing.T) int64 {
 		t.Fatalf("invalid DB2_STRESS_SEED: %q", value)
 	}
 	return seed
+}
+
+// procFDCount returns the number of open file descriptors (linux only).
+func procFDCount() int {
+	entries, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		return -1
+	}
+	return len(entries)
+}
+
+// procRSSKB returns the resident set size in KiB (linux only).
+func procRSSKB() int {
+	data, err := os.ReadFile("/proc/self/status")
+	if err != nil {
+		return -1
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "VmRSS:") {
+			kb := 0
+			fmt.Sscanf(line, "VmRSS: %d kB", &kb) //nolint:errcheck
+			return kb
+		}
+	}
+	return -1
+}
+
+type leakSnapshot struct {
+	env, conn, stmt int
+	fds             int
+	rssKB           int
+}
+
+func takeLeakSnapshot() leakSnapshot {
+	env, conn, stmt := ibmdb.HandleCounts()
+	return leakSnapshot{env: env, conn: conn, stmt: stmt, fds: procFDCount(), rssKB: procRSSKB()}
+}
+
+// assertNoLeaks compares snapshots taken before and after the load: every
+// statement and environment handle must be released, and the descriptor
+// count must not creep. Connection handles may legitimately remain held by
+// the database/sql pool, so they are reported but not asserted.
+func assertNoLeaks(t *testing.T, before, after leakSnapshot, workers int) {
+	t.Helper()
+	if after.stmt != before.stmt {
+		t.Errorf("leak: statement handles %d -> %d during the load", before.stmt, after.stmt)
+	}
+	if after.env != before.env {
+		t.Errorf("leak: environment handles %d -> %d during the load", before.env, after.env)
+	}
+	if after.fds >= 0 && before.fds >= 0 && after.fds-before.fds > workers*2+16 {
+		t.Errorf("leak: file descriptors %d -> %d during the load", before.fds, after.fds)
+	}
+	t.Logf("handles: env %d->%d conn %d->%d stmt %d->%d; fds %d->%d; rss %d->%d kB",
+		before.env, after.env, before.conn, after.conn, before.stmt, after.stmt,
+		before.fds, after.fds, before.rssKB, after.rssKB)
 }

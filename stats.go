@@ -20,6 +20,19 @@ type Stats struct {
 	mu        sync.Mutex
 }
 
+// Snapshot returns the current handle counts under the stats lock.
+func (s *Stats) Snapshot() (env, conn, stmt int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.EnvCount, s.ConnCount, s.StmtCount
+}
+
+// HandleCounts reports the driver's live ODBC handle counts (environment,
+// connection and statement handles) for diagnostics and leak checks.
+func HandleCounts() (env, conn, stmt int) {
+	return drv.Stats.Snapshot()
+}
+
 func (s *Stats) updateHandleCount(handleType api.SQLSMALLINT, change int) {
 	trc.Trace1("stats.go: updateHandleCount() - ENTRY")
 	trc.Trace1("change=%d", change)
