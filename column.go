@@ -35,6 +35,8 @@ const (
 	maxColumnBufferSize = 2147483647
 	// maxXMLBufferSize is the buffer cap for SQL_XML columns (30 MiB).
 	maxXMLBufferSize = 31457280
+	// maxBoundColumnSize keeps large values on the SQLGetData path.
+	maxBoundColumnSize = 65536
 	// columnNameBufferSize is the UTF-16 buffer for one column name.
 	columnNameBufferSize = 150
 	// getDataChunkSize is the initial SQLGetData chunk for long values.
@@ -166,7 +168,7 @@ func NewColumn(h api.SQLHSTMT, idx int) (Column, error) {
 	case api.SQL_BINARY, api.SQL_VARBINARY, api.SQL_BLOB:
 		return NewVariableWidthColumn(b, api.SQL_C_BINARY, size), nil
 	case api.SQL_LONGVARCHAR:
-		return NewVariableWidthColumn(b, api.SQL_C_CHAR, size), nil
+		return NewVariableWidthColumn(b, api.SQL_C_CHAR, 0), nil
 	case api.SQL_WLONGVARCHAR, api.SQL_SS_XML:
 		return NewVariableWidthColumn(b, api.SQL_C_WCHAR, size), nil
 	case sqlGraphic, sqlVarGraphic, sqlLongVarGraphic:
@@ -335,7 +337,7 @@ func NewBindableColumn(b *BaseColumn, ctype api.SQLSMALLINT, bufSize int) *Binda
 func NewVariableWidthColumn(b *BaseColumn, ctype api.SQLSMALLINT, colWidth api.SQLULEN) Column {
 	trc.Trace1("column.go: NewVariableWidthColumn() - ENTRY")
 
-	if colWidth == 0 {
+	if colWidth == 0 || colWidth > maxBoundColumnSize {
 		b.CType = ctype
 		return &NonBindableColumn{b}
 	}
@@ -380,6 +382,12 @@ func (c *BindableColumn) Bind(h api.SQLHSTMT, idx int) (bool, error) {
 func (c *BindableColumn) Value(h api.SQLHSTMT, idx int) (driver.Value, error) {
 	trc.Trace1("column.go: Value() - ENTRY")
 	trc.Trace1("idx = %d", idx)
+
+	// BindColumns may reduce ROW_ARRAY_SIZE to one after an earlier column
+	// was array-bound. That column still uses Lens[0], not Len.
+	if c.IsBound && c.fetchSize > 1 {
+		return c.ValueAtRow(h, idx, 0)
+	}
 
 	if !c.IsBound {
 		ret := c.Len.GetData(h, idx, c.CType, c.Buffer)

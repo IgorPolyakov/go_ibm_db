@@ -22,6 +22,7 @@ type Conn struct {
 	h         api.SQLHDBC
 	tx        *Tx
 	fetchSize int
+	dbms      dbmsDialect
 }
 
 // parseDSN extracts FETCHSIZE/ROWARRAYSIZE from the connection string and
@@ -100,8 +101,15 @@ func (d *Driver) Open(dsn string) (driver.Conn, error) {
 		defer func() { _ = releaseHandle(h) }()
 		return nil, NewError("SQLDriverConnect", h)
 	}
+	c := &Conn{h: h, fetchSize: fetchSize}
+	name, err := c.GetInfo(api.SQL_DBMS_NAME)
+	if err != nil {
+		_ = c.Close()
+		return nil, err
+	}
+	c.dbms = dbmsForName(name)
 	trc.Trace1("conn.go: Open() - EXIT")
-	return &Conn{h: h, fetchSize: fetchSize}, nil
+	return c, nil
 }
 
 // GetInfo reports a string-valued piece of DBMS/driver information via

@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"strings"
 	"time"
 
 	"github.com/ibmdb/go_ibm_db/api"
@@ -145,8 +146,16 @@ func (s *Stmt) exec(ctx context.Context, args []driver.Value) (driver.Result, er
 		return nil, ctx.Err()
 	}
 
+	result := &Result{rowCount: sumRowCount}
+	if fields := strings.Fields(s.query); len(fields) > 0 && strings.EqualFold(fields[0], "INSERT") {
+		result.lastInsertID, result.lastInsertErr = s.c.lastInsertID(ctx)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	trc.Trace1("stmt.go: exec()- EXIT")
-	return &Result{s.c, sumRowCount}, nil
+	return result, nil
 }
 
 // Query function executes the sql and return rows if rows are present.

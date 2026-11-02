@@ -15,17 +15,22 @@ import (
 
 // Result is the driver.Result of an Exec call.
 type Result struct {
-	c        *Conn
-	rowCount int64
+	rowCount      int64
+	lastInsertID  int64
+	lastInsertErr error
 }
 
-// LastInsertId returns the last identity value generated on the connection.
+// LastInsertId returns the identity value captured before Exec released its connection.
 func (r *Result) LastInsertId() (int64, error) {
+	return r.lastInsertID, r.lastInsertErr
+}
+
+func (c *Conn) lastInsertID(ctx context.Context) (int64, error) {
 	trc.Trace1("result.go: LastInsetId() - ENTRY")
 
 	lastInsertID := int64(0)
 
-	s, err := r.c.Prepare("select identity_val_local() as last_inserted_id from sysibm.sysdummy1")
+	s, err := c.PrepareContext(ctx, c.dbms.lastInsertIDQuery())
 	if err != nil {
 		return 0, err
 	}
@@ -35,7 +40,7 @@ func (r *Result) LastInsertId() (int64, error) {
 	if !ok {
 		return 0, fmt.Errorf("%w: %T", errUnexpectedStatementType, s)
 	}
-	rows, err := stmt.query1(context.Background(), nil)
+	rows, err := stmt.query1(ctx, nil)
 	if err != nil {
 		return 0, err
 	}

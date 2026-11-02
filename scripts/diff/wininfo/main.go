@@ -44,9 +44,9 @@ func main() {
 	var stmt api.SQLHSTMT
 	if api.SQLAllocHandle(api.SQL_HANDLE_STMT, api.SQLHANDLE(dbc), (*api.SQLHANDLE)(&stmt)) == api.SQL_SUCCESS {
 		q := api.StringToUTF16("SELECT COUNT(*) FROM sysdatabases")
-		api.SQLExecDirectW(stmt, (*api.SQLWCHAR)(unsafe.Pointer(&q[0])), api.SQL_NTS) //nolint:errcheck
-		api.SQLFetch(stmt)                                                            //nolint:errcheck
-		api.SQLFreeHandle(api.SQL_HANDLE_STMT, api.SQLHANDLE(stmt))                   //nolint:errcheck
+		api.SQLExecDirect(stmt, (*api.SQLWCHAR)(unsafe.Pointer(&q[0])), api.SQL_NTS) //nolint:errcheck
+		api.SQLFetch(stmt)                                                           //nolint:errcheck
+		api.SQLFreeHandle(api.SQL_HANDLE_STMT, api.SQLHANDLE(stmt))                  //nolint:errcheck
 	}
 
 	types := map[string]api.SQLUSMALLINT{

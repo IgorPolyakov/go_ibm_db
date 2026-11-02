@@ -304,6 +304,21 @@ Use `DSN=...` rather than `DATABASE=...` when selecting an ODBC data source. On 
 * [Activating the license certificate file for Db2 Connect Unlimited Edition](https://www.ibm.com/docs/en/db2/11.5?topic=li-activating-license-certificate-file-db2-connect-unlimited-edition).
 * [Unlimited licensing using db2connectactivate utility](https://www.ibm.com/docs/en/db2/11.1?topic=edition-db2connectactivate-server-license-activation-utility).
 
+### Informix compatibility
+
+The live Informix compatibility tests cover prepared scalar parameters, `FIRST`/`SKIP`,
+`SERIAL` values through `Result.LastInsertId`, transactions, temporary tables,
+`TEXT`/`BYTE`, `NULL`, session `DATABASE`, isolation and lock-mode statements,
+and native Informix error codes. `LastInsertId` captures the `SERIAL` value before
+`Exec` releases its connection. The tested server is Informix in a local container,
+using the IBM clidriver and Go 1.27.3. Run the tests with
+`DB2_STRESS_DSN` and `DB2_STRESS_PLATFORM=INFORMIX`; see `stress/README.md`.
+
+`SERIAL8`/`BIGSERIAL`, typed parameter arrays and the application's production
+locale are not covered by these tests. Set `DB_LOCALE` and `CLIENT_LOCALE` for the
+target database before opening connections and validate the application's text
+encoding against that database.
+
 ## How to run sample program
 
 ### example1.go:-

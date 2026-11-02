@@ -24,6 +24,9 @@
 
 ## Открытые проблемы
 
+- [x] **Сценарии Informix:** `Result.LastInsertId` теперь фиксирует `SERIAL` до возврата `Exec`; серверный SQL выбирается стратегией DBMS. Живые тесты проверяют `SERIAL`, prepared/scalar, `FIRST`/`SKIP`, `TEXT`/`BYTE` (2 МиБ), `NULL`, `DATABASE`, все используемые режимы `SET ISOLATION`/`SET LOCK MODE`, коды `-206`/`-239`, commit/rollback с проверкой данных и `DECIMAL`/`DATETIME`. При `FETCHSIZE=8` обнаружен и исправлен переход с array bind на single-row fetch для столбцов перед LOB. Прогон `-race` на локальном Informix проходит.
+- [ ] **Перед выпуском поддержки Informix:** проверить кириллицу на базе с рабочими `DB_LOCALE`/`CLIENT_LOCALE`; локальный `sysmaster` возвращает ошибку кодировки для кириллицы. Perl `DBD::Informix` в окружении отсутствует, поэтому прямой сравнительный прогон Perl/Go ещё не выполнен. `SERIAL8`/`BIGSERIAL` не проверялись.
+
 - [x] **Высокий: `-race` немедленно падает с `checkptr` при `FETCHSIZE>1`.** *Исправлено 2026-11-01:* числовые атрибуты statement (`SQL_ATTR_PARAMSET_SIZE`, `SQL_ATTR_ROW_ARRAY_SIZE` и сброс) передаются через новую платформенную обёртку `api.SQLSetStmtUIntPtrAttr` (unix/windows/zos) — конвертация uintptr→SQLPOINTER выполняется в C, как у env/connect-атрибутов; `rowsFetched`/`rowStatus` для array-fetch закреплены `runtime.Pinner` на время жизни statement (unpin в `releaseHandle`). Проверено под `-race`: стресс 8 воркеров — 582 834 операции за 2 минуты, фаззинг — 23 225 execs, оба чисто; checkptr не воспроизводится.
 
 - [x] **Гонка в тестах пула (GoHawk).** *Исправлено 2026-11-01:* `flag` переведён на `atomic.Int32` с `CompareAndSwap` в обеих функциях (`ConnectionPool`, `ConnectionPoolWithTimeout`); `go test -race ./testdata` на Informix — чисто.
