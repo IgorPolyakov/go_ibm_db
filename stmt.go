@@ -212,14 +212,18 @@ func (s *Stmt) query1(ctx context.Context, args []driver.Value) (driver.Rows, er
 		return nil, err
 	}
 
-	// Check the context before handing the statement to Rows: if the
-	// deadline fires past this point no Rows object is ever created, and
-	// usedByRows would stay set with nobody left to call closeByRows —
-	// the next execution would orphan this handle and leak it (caught by
-	// the stress leak detector as ~1 stmt handle per 300k operations).
+	// On cancellation no Rows object is ever created to close the cursor:
+	// usedByRows would stay set with nobody left to call closeByRows, and
+	// the next execution would orphan this handle and leak it. Close the
+	// cursor here so the statement can be reused, and leave usedByRows
+	// unset so Stmt.Close can still release the handle.
 	select {
 	default:
 	case <-ctx.Done():
+		ret := api.SQLCloseCursor(s.os.h)
+		if IsError(ret) {
+			return nil, NewError("SQLCloseCursor", s.os.h)
+		}
 		return nil, ctx.Err()
 	}
 
